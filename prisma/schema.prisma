@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Institute {
+  id               String   @id @default(cuid())
+  clerkOrgId       String   @unique
+  name             String
+  location         String?
+  adminEmail       String
+  phoneNo          String?
+  joinedAt         DateTime @default(now())
+  
+  subscriptionType String   @default("FREE")
+  subsInfo         String?
+
+  teachers         Teacher[]
+  students         Student[]
+  batches          Batch[]
+}
+
+model Teacher {
+  id          String   @id @default(cuid())
+  clerkUserId String   @unique
+  name        String
+  address     String?
+  phoneNo     String?
+  salary      Float?
+  subjects    String?
+  
+  instituteId String
+  institute   Institute @relation(fields: [instituteId], references: [id])
+
+  batchesTaught Batch[]
+}
+
+model Batch {
+  id          String   @id @default(cuid())
+  className   String
+  subject     String
+  timing      String?
+
+  instituteId String
+  institute   Institute @relation(fields: [instituteId], references: [id])
+  
+  teacherId   String?
+  teacher     Teacher?  @relation(fields: [teacherId], references: [id])
+
+  students    BatchEnrollment[]
+}
+
+model Student {
+  id          String   @id @default(cuid())
+  name        String
+  address     String?
+  phoneNo     String?
+  parentPhone String?
+  email       String?
+
+  instituteId String
+  institute   Institute @relation(fields: [instituteId], references: [id])
+
+  batches     BatchEnrollment[]
+  attendance  Attendance[]
+  fees        Fee[]
+}
+
+model BatchEnrollment {
+  id        String  @id @default(cuid())
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id])
+  batchId   String
+  batch     Batch   @relation(fields: [batchId], references: [id])
+}
+
+model Attendance {
+  id        String   @id @default(cuid())
+  date      DateTime
+  status    String
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+}
+
+model Fee {
+  id           String   @id @default(cuid())
+  amountTotal  Float
+  amountPaid   Float
+  dueDate      DateTime
+  status       String
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id])
+}
