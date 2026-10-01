@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model Institute {
@@ -18,10 +19,13 @@ model Institute {
   
   subscriptionType String   @default("FREE")
   subsInfo         String?
+  paymentStatus    String   @default("PAID") // "PAID" | "OVERDUE" | "PENDING"
+  isActive         Boolean  @default(true)
 
   teachers         Teacher[]
   students         Student[]
   batches          Batch[]
+  invoices         InstituteInvoice[]
 }
 
 model Teacher {
@@ -32,6 +36,7 @@ model Teacher {
   phoneNo     String?
   salary      Float?
   subjects    String?
+  status      String   @default("ACTIVE") // "ACTIVE" | "SUSPENDED"
   
   instituteId String
   institute   Institute @relation(fields: [instituteId], references: [id])
@@ -41,6 +46,7 @@ model Teacher {
 
 model Batch {
   id          String   @id @default(cuid())
+  batchName   String?
   className   String
   subject     String
   timing      String?
@@ -56,11 +62,14 @@ model Batch {
 
 model Student {
   id          String   @id @default(cuid())
+  clerkUserId String?  @unique
   name        String
   address     String?
   phoneNo     String?
   parentPhone String?
   email       String?
+  status      String   @default("ACTIVE") // "ACTIVE" | "SUSPENDED"
+  joinedAt    DateTime @default(now())
 
   instituteId String
   institute   Institute @relation(fields: [instituteId], references: [id])
@@ -92,6 +101,27 @@ model Fee {
   amountPaid   Float
   dueDate      DateTime
   status       String
+  paidAt       DateTime?
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt @default(now())
+
   studentId    String
   student      Student  @relation(fields: [studentId], references: [id])
+}
+
+model InstituteInvoice {
+  id                String    @id @default(cuid())
+  amount            Float
+  status            String    @default("PENDING") // "PAID", "OVERDUE", "PENDING"
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
+  dueDate           DateTime
+  paidAt            DateTime?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt @default(now())
+
+  instituteId       String
+  institute         Institute @relation(fields: [instituteId], references: [id])
 }
