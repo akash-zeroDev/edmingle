@@ -1,7 +1,8 @@
 import { currentUser } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
-import { GraduationCap, ArrowLeft, BookOpen, Calendar, IndianRupee, Megaphone } from "lucide-react"
-import { UserButton } from "@clerk/nextjs"
+import { GraduationCap, ArrowLeft, BookOpen, Calendar, IndianRupee, Megaphone, CircleHelp } from "lucide-react"
+import { UserDropdown } from "@/components/user-dropdown"
+import { ReportIssueDialog } from "@/components/report-issue-dialog"
 import Link from "next/link"
 
 export default async function StudentLayout({
@@ -51,13 +52,22 @@ export default async function StudentLayout({
               <span>{studentName}</span>
             </div>
 
-            <UserButton
-              appearance={{
-                elements: {
-                  avatarBox: "size-9 rounded-xl ring-2 ring-primary/20",
-                },
-              }}
+            <ReportIssueDialog
+              trigger={
+                <button
+                  type="button"
+                  className="h-8 px-2.5 rounded-lg border border-border bg-white text-muted-foreground hover:text-foreground hover:bg-slate-50 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Report an issue or give feedback"
+                >
+                  <CircleHelp className="size-3.5" />
+                  <span className="hidden md:inline">Help & Feedback</span>
+                </button>
+              }
             />
+
+            <div className="flex items-center min-w-[36px] min-h-[36px]" suppressHydrationWarning>
+              <UserDropdown align="end" side="bottom" sideOffset={8} />
+            </div>
           </div>
         </div>
       </header>

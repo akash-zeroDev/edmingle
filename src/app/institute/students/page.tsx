@@ -1,33 +1,40 @@
 import prisma from "@/lib/prisma"
-import { currentUser } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
 import { Plus } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { StudentsTable } from "./components/students-table"
+import { getAuthenticatedInstitute } from "@/lib/current-institute"
 
 export default async function StudentsPage() {
-  const user = await currentUser();
-  const email = user?.emailAddresses[0]?.emailAddress;
-  
-  if (!email) redirect("/");
+  const authData = await getAuthenticatedInstitute();
+  if (!authData?.institute) redirect("/onboarding");
+  const institute = authData.institute;
 
-  const institute = await prisma.institute.findFirst({
-    where: { adminEmail: email }
-  });
-
-  if (!institute) redirect("/onboarding");
-
-  // Fetch students securely scoped to this institute
+  // Fetch students securely scoped to this institute with full live relations for sidecard
   const students = await prisma.student.findMany({
     where: { instituteId: institute.id },
     include: {
       batches: {
         include: {
-          batch: true
-        }
-      }
-    }
+          batch: {
+            include: {
+              teacher: { select: { name: true } },
+            },
+          },
+        },
+      },
+      fees: {
+        include: {
+          payments: { orderBy: { paidAt: "desc" } },
+        },
+      },
+      attendance: {
+        take: 10,
+        orderBy: { date: "desc" },
+      },
+    },
+    orderBy: { name: "asc" },
   });
 
   return (
@@ -38,15 +45,12 @@ export default async function StudentsPage() {
           <h1 className="text-[25px] font-bold tracking-tight text-[#15171b] leading-tight">
             Students
           </h1>
-          <p className="text-[13px] text-[#5f636d] mt-1.5">
-            Manage student registrations, profiles, and enrollments.
-          </p>
         </div>
         <div className="flex w-full sm:w-auto gap-2">
           <Link href="/institute/students/new">
             <Button className="h-10 px-4 bg-primary hover:bg-primary-hover text-white rounded-xl text-sm font-semibold shadow-sm transition-all">
               <Plus className="w-4 h-4 mr-2" />
-              Add Student
+              Add student
             </Button>
           </Link>
         </div>

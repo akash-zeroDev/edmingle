@@ -1,7 +1,8 @@
 import prisma from "@/lib/prisma"
-import { currentUser } from "@clerk/nextjs/server"
 import { redirect, notFound } from "next/navigation"
+import { getAuthenticatedInstitute } from "@/lib/current-institute"
 import { BatchWorkspace } from "./components/batch-workspace"
+import { getAnnouncementsForBatch } from "@/actions/announcement"
 
 interface BatchDetailPageProps {
   params: Promise<{
@@ -11,16 +12,9 @@ interface BatchDetailPageProps {
 
 export default async function BatchDetailPage({ params }: BatchDetailPageProps) {
   const { batchId } = await params
-  const user = await currentUser()
-  const email = user?.emailAddresses[0]?.emailAddress
-
-  if (!email) redirect("/")
-
-  const institute = await prisma.institute.findFirst({
-    where: { adminEmail: email },
-  })
-
-  if (!institute) redirect("/onboarding")
+  const authData = await getAuthenticatedInstitute()
+  if (!authData?.institute) redirect("/onboarding")
+  const institute = authData.institute
 
   // Load batch with teacher and enrolled students
   const batch = await prisma.batch.findFirst({
@@ -36,6 +30,7 @@ export default async function BatchDetailPage({ params }: BatchDetailPageProps) 
           phoneNo: true,
           subjects: true,
           status: true,
+          email: true,
         },
       },
       students: {
@@ -77,5 +72,32 @@ export default async function BatchDetailPage({ params }: BatchDetailPageProps) 
     orderBy: { name: "asc" },
   })
 
-  return <BatchWorkspace batch={batch} availableStudents={availableStudents} />
+  // Load institute teachers available for assignment
+  const availableTeachers = await prisma.teacher.findMany({
+    where: {
+      instituteId: institute.id,
+      status: "ACTIVE",
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phoneNo: true,
+      subjects: true,
+      status: true,
+    },
+    orderBy: { name: "asc" },
+  })
+
+  // Load batch announcements from database
+  const announcements = await getAnnouncementsForBatch(batchId, institute.id)
+
+  return (
+    <BatchWorkspace
+      batch={batch}
+      availableStudents={availableStudents}
+      availableTeachers={availableTeachers}
+      announcements={announcements}
+    />
+  )
 }

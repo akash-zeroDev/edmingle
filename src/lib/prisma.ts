@@ -1,9 +1,21 @@
 import { PrismaClient } from "@prisma/client"
 
-const globalForPrisma = globalThis as unknown as { prisma3: PrismaClient }
+const globalForPrisma = globalThis as unknown as {
+  prismaInstanceV12?: PrismaClient
+}
 
-export const prisma = globalForPrisma.prisma3 || new PrismaClient()
+function createPrismaClient(): PrismaClient {
+  const existing = globalForPrisma.prismaInstanceV12
+  if (existing && "announcement" in existing) {
+    return existing
+  }
+  const fresh = new PrismaClient()
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prismaInstanceV12 = fresh
+  }
+  return fresh
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma3 = prisma
+export const prisma = createPrismaClient()
 
 export default prisma

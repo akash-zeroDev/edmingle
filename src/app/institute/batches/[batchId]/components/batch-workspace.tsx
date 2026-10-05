@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useTransition } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
   BookOpen,
@@ -22,8 +23,11 @@ import {
   Plus,
   Search,
   Send,
+  ShieldCheck,
   Sparkles,
   Trash2,
+  UserCheck,
+  UserPlus,
   UserSquare2,
   Users,
 } from "lucide-react"
@@ -32,6 +36,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { CustomSelect } from "@/components/ui/custom-select"
 import {
   Table,
   TableHeader,
@@ -59,12 +64,14 @@ import {
   mockFeeRows,
   mockModules,
   mockTimetable,
-  mockAnnouncements,
   type MockStudent,
-  type MockAnnouncement,
-  type AnnouncementAudience,
 } from "@/data/mock-batch-workspace"
-import { enrollStudentInBatch, removeStudentFromBatch } from "@/actions/batch"
+import { enrollStudentInBatch, removeStudentFromBatch, enrollTeacherInBatch } from "@/actions/batch"
+import {
+  createBatchAnnouncement,
+  deleteAnnouncement,
+  type BatchAnnouncementItem,
+} from "@/actions/announcement"
 import { cn } from "@/lib/utils"
 
 export interface BatchWorkspaceProps {
@@ -79,6 +86,8 @@ export interface BatchWorkspaceProps {
       name: string
       phoneNo?: string | null
       subjects?: string | null
+      email?: string | null
+      status?: string | null
     } | null
     students: Array<{
       id: string
@@ -100,6 +109,15 @@ export interface BatchWorkspaceProps {
     phoneNo?: string | null
     parentPhone?: string | null
   }>
+  availableTeachers?: Array<{
+    id: string
+    name: string
+    email?: string | null
+    phoneNo?: string | null
+    subjects?: string | null
+    status?: string | null
+  }>
+  announcements?: BatchAnnouncementItem[]
 }
 
 type WorkspaceTab = "students" | "fees" | "curriculum" | "timetable" | "announcements"
@@ -129,16 +147,43 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps) {
+export function BatchWorkspace({
+  batch,
+  availableStudents,
+  availableTeachers = [],
+  announcements = [],
+}: BatchWorkspaceProps) {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("students")
+  const [isTabPending, startTabTransition] = useTransition()
+
+  const handleTabChange = (val: string) => {
+    startTabTransition(() => {
+      setActiveTab(val as WorkspaceTab)
+    })
+  }
+
   const [enrollOpen, setEnrollOpen] = useState(false)
   const [selectedStudentToEnroll, setSelectedStudentToEnroll] = useState<string>("")
   const [isEnrolling, setIsEnrolling] = useState(false)
-  const [announcementsList, setAnnouncementsList] = useState<MockAnnouncement[]>(mockAnnouncements)
+
+  // Teacher Enrollment State
+  const [enrollTeacherOpen, setEnrollTeacherOpen] = useState(false)
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string>(batch.teacher?.id || "")
+  const [isAssigningTeacher, setIsAssigningTeacher] = useState(false)
+
+  // Batch Live Announcements State (3-point synchronized network)
+  const [announcementsList, setAnnouncementsList] = useState<BatchAnnouncementItem[]>(announcements)
   const [noticeMessage, setNoticeMessage] = useState("")
   const [noticeTitle, setNoticeTitle] = useState("")
-  const [noticeAudience, setNoticeAudience] = useState<AnnouncementAudience>("students")
+  const [noticePriority, setNoticePriority] = useState<"NORMAL" | "HIGH" | "URGENT">("NORMAL")
   const [isSubmittingNotice, setIsSubmittingNotice] = useState(false)
+  const [isDeletingNoticeId, setIsDeletingNoticeId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setAnnouncementsList(announcements)
+  }, [announcements])
+
   const [rosterSearch, setRosterSearch] = useState("")
   const [feeFilter, setFeeFilter] = useState("All fees")
 
@@ -190,6 +235,7 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
       toast({ title: "Student Enrolled", description: res.message })
       setSelectedStudentToEnroll("")
       setEnrollOpen(false)
+      router.refresh()
     }
   }
 
@@ -204,44 +250,90 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
       toast({ variant: "destructive", title: "Removal failed", description: res.error })
     } else {
       toast({ title: "Student Removed", description: `${studentName || "Student"} unenrolled from this batch.` })
+      router.refresh()
     }
   }
 
-  const handlePostNotice = () => {
-    if (!noticeTitle.trim() || !noticeMessage.trim()) {
-      toast({ variant: "destructive", title: "Incomplete Notice", description: "Please provide both a title and notice body." })
+  const handleEnrollTeacherSubmit = async () => {
+    if (!selectedTeacherId) {
+      toast({
+        variant: "destructive",
+        title: "Select a Faculty Member",
+        description: "Please choose a teacher to enroll into this batch.",
+      })
+      return
+    }
+
+    setIsAssigningTeacher(true)
+    const res = await enrollTeacherInBatch(batch.id, selectedTeacherId)
+    setIsAssigningTeacher(false)
+
+    if (res.error) {
+      toast({ variant: "destructive", title: "Faculty Enrollment Failed", description: res.error })
+    } else {
+      toast({ title: "Faculty Enrolled", description: res.message })
+      setEnrollTeacherOpen(false)
+      router.refresh()
+    }
+  }
+
+  const handleUnassignTeacher = async () => {
+    setIsAssigningTeacher(true)
+    const res = await enrollTeacherInBatch(batch.id, null)
+    setIsAssigningTeacher(false)
+
+    if (res.error) {
+      toast({ variant: "destructive", title: "Unassign Failed", description: res.error })
+    } else {
+      toast({ title: "Faculty Removed", description: res.message })
+      setSelectedTeacherId("")
+      setEnrollTeacherOpen(false)
+      router.refresh()
+    }
+  }
+
+  const handlePostNotice = async () => {
+    if (!noticeMessage.trim()) {
+      toast({ variant: "destructive", title: "Incomplete Notice", description: "Please enter announcement text to broadcast." })
       return
     }
 
     setIsSubmittingNotice(true)
-    const audienceLabels: Record<AnnouncementAudience, string> = {
-      students: "Students Only",
-      parents: "Parents Only",
-      both: "Students & Parents",
-    }
-
-    const newNotice: MockAnnouncement = {
-      id: `notice-${Date.now()}`,
-      title: noticeTitle.trim(),
-      meta: `Posted just now · ${audienceLabels[noticeAudience]}`,
-      body: noticeMessage.trim(),
-      targetAudience: noticeAudience,
-    }
-
-    setAnnouncementsList([newNotice, ...announcementsList])
-    setNoticeTitle("")
-    setNoticeMessage("")
-    setNoticeAudience("students")
-    setIsSubmittingNotice(false)
-    toast({
-      title: "Notice Broadcasted",
-      description:
-        noticeAudience === "students"
-          ? "SMS and WhatsApp alerts queued for all enrolled students in this batch."
-          : noticeAudience === "parents"
-          ? "SMS and WhatsApp alerts queued for registered parents of this batch."
-          : "SMS and WhatsApp alerts queued for both students and parents.",
+    const res = await createBatchAnnouncement({
+      batchId: batch.id,
+      content: noticeMessage.trim(),
+      priority: noticePriority,
     })
+    setIsSubmittingNotice(false)
+
+    if (res.error) {
+      toast({ variant: "destructive", title: "Broadcast Failed", description: res.error })
+    } else {
+      toast({
+        title: "Notice Broadcasted Live",
+        description: "Your notice is now live across student, faculty, and institute views.",
+      })
+      if (res.announcement) {
+        setAnnouncementsList((prev) => [res.announcement as BatchAnnouncementItem, ...prev])
+      }
+      setNoticeMessage("")
+      setNoticePriority("NORMAL")
+      router.refresh()
+    }
+  }
+
+  const handleDeleteNotice = async (noticeId: string) => {
+    setIsDeletingNoticeId(noticeId)
+    const res = await deleteAnnouncement(noticeId)
+    setIsDeletingNoticeId(null)
+
+    if (res.error) {
+      toast({ variant: "destructive", title: "Failed to Delete", description: res.error })
+    } else {
+      toast({ title: "Notice Removed", description: "The announcement was deleted across all portals." })
+      setAnnouncementsList((prev) => prev.filter((a) => a.id !== noticeId))
+      router.refresh()
+    }
   }
 
   return (
@@ -283,11 +375,43 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
             <h1 className="text-2xl font-bold tracking-tight text-[#15171b]">
               {displayName}
             </h1>
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-2 text-xs text-[#5e6b63]">
-              <span className="inline-flex items-center gap-1.5 font-medium text-[#1a201c]">
-                <UserSquare2 className="size-3.5 text-primary" />
-                {batch.teacher ? batch.teacher.name : "Unassigned Teacher"}
-              </span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2 text-xs text-[#5e6b63]">
+              {batch.teacher ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTeacherId(batch.teacher?.id || "")
+                    setEnrollTeacherOpen(true)
+                  }}
+                  className="inline-flex items-center gap-1.5 font-medium text-[#1a201c] bg-emerald-50/80 hover:bg-emerald-100/70 border border-emerald-200/80 px-2.5 py-1 rounded-lg transition-colors cursor-pointer group"
+                  title="Click to manage faculty"
+                >
+                  <UserCheck className="size-3.5 text-emerald-700" />
+                  <span className="text-emerald-900 font-semibold">{batch.teacher.name}</span>
+                  {batch.teacher.subjects && (
+                    <span className="text-emerald-700 font-normal">({batch.teacher.subjects})</span>
+                  )}
+                  <span className="text-[10px] text-emerald-800 underline underline-offset-2 ml-1 opacity-80 group-hover:opacity-100">
+                    Manage
+                  </span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTeacherId("")
+                    setEnrollTeacherOpen(true)
+                  }}
+                  className="inline-flex items-center gap-1.5 font-medium text-amber-800 bg-amber-50 hover:bg-amber-100/80 border border-amber-200/80 px-2.5 py-1 rounded-lg transition-colors cursor-pointer text-xs group"
+                  title="Click to enroll faculty"
+                >
+                  <UserPlus className="size-3.5 text-amber-700" />
+                  <span>Unassigned Teacher</span>
+                  <span className="text-[10px] font-semibold text-amber-900 underline underline-offset-2 ml-0.5">
+                    + Enroll Teacher
+                  </span>
+                </button>
+              )}
               <span className="inline-flex items-center gap-1.5">
                 <Clock className="size-3.5 text-[#8b9a90]" />
                 {batch.timing || "Flexible (Not scheduled)"}
@@ -297,20 +421,31 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
         </div>
 
         {/* Header Action Buttons */}
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             onClick={() => {
               setActiveTab("announcements")
             }}
-            className="h-10 px-4 text-xs font-semibold border-[#e3e8e5] rounded-xl hover:bg-[#fafbfc] focus:outline-none focus-visible:outline-none"
+            className="h-10 px-3.5 text-xs font-semibold border-[#e3e8e5] rounded-xl hover:bg-[#fafbfc] focus:outline-none focus-visible:outline-none"
           >
             <Megaphone className="size-3.5 mr-2 text-primary" />
             Post Notice
           </Button>
           <Button
+            variant="outline"
+            onClick={() => {
+              setSelectedTeacherId(batch.teacher?.id || "")
+              setEnrollTeacherOpen(true)
+            }}
+            className="h-10 px-3.5 text-xs font-semibold border-[#e3e8e5] text-[#1a201c] rounded-xl hover:bg-[#fafbfc] hover:border-primary/40 focus:outline-none focus-visible:outline-none"
+          >
+            <UserCheck className="size-3.5 mr-1.5 text-primary" />
+            {batch.teacher ? "Change Teacher" : "Enroll Teacher"}
+          </Button>
+          <Button
             onClick={() => setEnrollOpen(true)}
-            className="h-10 px-4 text-xs font-semibold bg-primary hover:bg-primary-hover text-white rounded-xl shadow-sm focus:outline-none focus-visible:outline-none"
+            className="h-10 px-3.5 text-xs font-semibold bg-primary hover:bg-primary-hover text-white rounded-xl shadow-sm focus:outline-none focus-visible:outline-none"
           >
             <Plus className="size-3.5 mr-1.5" />
             Enroll Student
@@ -396,7 +531,7 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
 
       {/* Main Workspace Tabs Container */}
       <div className="bg-white rounded-2xl border border-[#e7e9ed] shadow-[0_1px_2px_rgba(16,24,40,0.03)] overflow-hidden">
-        <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as WorkspaceTab)}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           {/* Tab Navigation Strip */}
           <div className="border-b border-[#e7e9ed] px-4 overflow-x-auto">
             <TabsList className="h-12 gap-6 bg-transparent">
@@ -434,7 +569,7 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
           </div>
 
           {/* TAB 1: STUDENTS ROSTER */}
-          <TabsContent value="students" className="p-0">
+          <TabsContent value="students" className={cn("p-0 animate-in fade-in duration-150", isTabPending && "opacity-60")}>
             {/* Filter & Search Header */}
             <div className="p-4 border-b border-[#e7e9ed] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div className="relative w-full sm:w-[320px]">
@@ -483,9 +618,9 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
             {!hasRealStudents && (
               <div className="px-5 py-2.5 bg-blue-50/60 border-b border-blue-100 flex items-center justify-between text-xs text-blue-900">
                 <span>
-                  💡 <strong>Preview Mode</strong>: Showing sample student data. Use <strong>"Enroll Student"</strong> above to assign active institute students.
+                  Showing sample students. Use <strong>Enroll student</strong> to add students to this batch.
                 </span>
-                <span className="font-semibold text-primary">6 Preview Students</span>
+                <span className="font-semibold text-primary">6 sample students</span>
               </div>
             )}
 
@@ -528,7 +663,7 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
                         onClick={() =>
                           toast({
                             title: student.name,
-                            description: `Roll: ${student.roll} • Attendance: ${student.attendance} • Fee Status: ${student.fees}`,
+                            description: `Roll ${student.roll}, Attendance: ${student.attendance}, Fees: ${student.fees}`,
                           })
                         }
                         className="hover:bg-[#fafbfc] transition-colors cursor-pointer group"
@@ -603,32 +738,28 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
             </div>
             <div className="flex items-center justify-between border-t border-[#e7e9ed] px-5 py-3 text-xs text-[#5e6b63]">
               <span>Showing {filteredStudents.length} of {displayedStudents.length} students</span>
-              <span>All student records synchronized</span>
             </div>
           </TabsContent>
 
           {/* TAB 2: FEE DUES & PAYMENTS */}
-          <TabsContent value="fees" className="p-6 space-y-6">
+          <TabsContent value="fees" className={cn("p-6 space-y-6 animate-in fade-in duration-150", isTabPending && "opacity-60")}>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#f8fafc] p-4 rounded-xl border border-[#e2e8f0]">
               <div>
-                <h3 className="text-sm font-bold text-[#15171b]">Batch Fee Realization Summary</h3>
-                <p className="text-xs text-[#5e6b63] mt-0.5">
-                  Installment tracking for academic quarter dues across all batch students.
-                </p>
+                <h3 className="text-sm font-bold text-[#15171b]">Batch fees</h3>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() =>
                   toast({
-                    title: "Fee Reminders Sent",
-                    description: "Dispatched automated WhatsApp and SMS reminders to all students with pending dues.",
+                    title: "Reminders sent",
+                    description: "Sent fee reminders to students with pending dues.",
                   })
                 }
                 className="h-9 text-xs border-[#e3e8e5] rounded-xl focus:outline-none focus-visible:outline-none"
               >
                 <Send className="size-3.5 mr-1.5 text-primary" />
-                Send Bulk Due Reminders
+                Send reminders
               </Button>
             </div>
 
@@ -652,7 +783,7 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
                       onClick={() =>
                         toast({
                           title: row.student,
-                          description: `Status: ${row.status} • Total: ${row.amount} • Paid: ${row.paid} • Due: ${row.due}`,
+                          description: `Status: ${row.status}, Total: ${row.amount}, Paid: ${row.paid}, Due: ${row.due}`,
                         })
                       }
                       className="hover:bg-[#fafbfc] transition-colors cursor-pointer group"
@@ -688,7 +819,7 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
           </TabsContent>
 
           {/* TAB 3: CURRICULUM / SYLLABUS */}
-          <TabsContent value="curriculum" className="p-6 space-y-4">
+          <TabsContent value="curriculum" className={cn("p-6 space-y-4 animate-in fade-in duration-150", isTabPending && "opacity-60")}>
             <div className="flex justify-between items-center mb-2">
               <div>
                 <h3 className="text-sm font-bold text-[#15171b]">Syllabus Progress & Chapters</h3>
@@ -719,7 +850,7 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
                   onClick={() =>
                     toast({
                       title: module.name,
-                      description: `Progress: ${module.progress}% • ${module.topics}`,
+                      description: `Progress: ${module.progress}%, ${module.topics}`,
                     })
                   }
                   className="grid gap-3 px-5 py-4.5 md:grid-cols-[40px_minmax(0,1fr)_220px] md:items-center hover:bg-[#fafbfc] transition-colors cursor-pointer group"
@@ -749,16 +880,13 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
           </TabsContent>
 
           {/* TAB 4: TIMETABLE & LECTURES */}
-          <TabsContent value="timetable" className="p-6 space-y-4">
+          <TabsContent value="timetable" className={cn("p-6 space-y-4 animate-in fade-in duration-150", isTabPending && "opacity-60")}>
             <div className="flex justify-between items-center mb-2">
               <div>
-                <h3 className="text-sm font-bold text-[#15171b]">Weekly Lecture Schedule</h3>
-                <p className="text-xs text-[#5e6b63] mt-0.5">
-                  Allocated classroom lecture slots and weekly problem-solving labs.
-                </p>
+                <h3 className="text-sm font-bold text-[#15171b]">Weekly schedule</h3>
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700">
-                Assigned: {batch.teacher ? batch.teacher.name : "Faculty"}
+                Teacher: {batch.teacher ? batch.teacher.name : "Unassigned"}
               </span>
             </div>
 
@@ -769,7 +897,7 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
                   onClick={() =>
                     toast({
                       title: `${slot.day} · ${slot.topic}`,
-                      description: `${slot.time} in ${slot.room} • Faculty: ${batch.teacher ? batch.teacher.name : "Assigned Faculty"}`,
+                      description: `${slot.time}, ${slot.room}, Teacher: ${batch.teacher ? batch.teacher.name : "Unassigned"}`,
                     })
                   }
                   className="p-5 rounded-xl border border-[#e7e9ed] bg-white shadow-sm flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group"
@@ -785,7 +913,7 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
                       {slot.topic}
                     </div>
                     <div className="mt-1 text-xs text-[#5e6b63]">
-                      {slot.room} · {batch.teacher ? batch.teacher.name : "Instructor"}
+                      {slot.room} · {batch.teacher ? batch.teacher.name : "Unassigned"}
                     </div>
                   </div>
 
@@ -795,131 +923,66 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
                     onClick={(e) => {
                       e.stopPropagation()
                       toast({
-                        title: `${slot.day} Lecture Details`,
+                        title: `${slot.day} details`,
                         description: `Class scheduled for ${slot.time} in ${slot.room}.`,
                       })
                     }}
                     className="mt-4 w-full h-8 text-xs border-[#e3e8e5] rounded-lg focus:outline-none focus-visible:outline-none cursor-pointer"
                   >
-                    View Lecture
+                    Details
                   </Button>
                 </div>
               ))}
             </div>
           </TabsContent>
 
+          {/* TAB 5: ANNOUNCEMENTS (Live 3-Point Synchronized Network) */}
           {/* TAB 5: ANNOUNCEMENTS */}
-          <TabsContent value="announcements" className="p-6 space-y-6">
+          <TabsContent value="announcements" className={cn("p-6 space-y-6 animate-in fade-in duration-150", isTabPending && "opacity-60")}>
             {/* Post Notice Composer */}
             <div className="p-5 rounded-2xl border border-[#e7e9ed] bg-[#f8fafc] space-y-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                <div className="flex items-center gap-2 text-sm font-bold text-[#15171b]">
-                  <Megaphone className="size-4 text-primary" />
-                  <span>Post Batch Announcement</span>
-                </div>
-                <span className="text-xs text-[#5e6b63]">
-                  Select recipient group before broadcasting
-                </span>
+              <div className="flex items-center gap-2 text-sm font-bold text-[#15171b]">
+                <Megaphone className="size-4 text-primary" />
+                <span>New announcement</span>
               </div>
 
-              {/* Recipient Audience Selector */}
+              {/* Priority Selector */}
               <div>
                 <label className="block text-xs font-semibold text-[#1a201c] mb-2">
-                  Recipient Audience *
+                  Priority
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {/* Option 1: Students Only (Default) */}
-                  <button
-                    type="button"
-                    onClick={() => setNoticeAudience("students")}
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer text-left",
-                      noticeAudience === "students"
-                        ? "border-primary bg-primary text-white shadow-sm ring-1 ring-primary"
-                        : "border-[#e3e8e5] bg-white text-[#5e6b63] hover:text-[#1a201c] hover:border-[#cfd5d0]"
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <GraduationCap className={cn("size-4 shrink-0", noticeAudience === "students" ? "text-white" : "text-primary")} />
-                      <div>
-                        <div className="font-bold">Students Only</div>
-                        <div className={cn("text-[10px] font-normal", noticeAudience === "students" ? "text-white/80" : "text-muted-foreground")}>Default · Batch students</div>
-                      </div>
-                    </div>
-                    <div className={cn("size-4 rounded-full border flex items-center justify-center shrink-0", noticeAudience === "students" ? "border-white bg-white text-primary" : "border-slate-300")}>
-                      {noticeAudience === "students" && <div className="size-2 rounded-full bg-primary" />}
-                    </div>
-                  </button>
-
-                  {/* Option 2: Parents Only */}
-                  <button
-                    type="button"
-                    onClick={() => setNoticeAudience("parents")}
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer text-left",
-                      noticeAudience === "parents"
-                        ? "border-primary bg-primary text-white shadow-sm ring-1 ring-primary"
-                        : "border-[#e3e8e5] bg-white text-[#5e6b63] hover:text-[#1a201c] hover:border-[#cfd5d0]"
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <UserSquare2 className={cn("size-4 shrink-0", noticeAudience === "parents" ? "text-white" : "text-primary")} />
-                      <div>
-                        <div className="font-bold">Parents Only</div>
-                        <div className={cn("text-[10px] font-normal", noticeAudience === "parents" ? "text-white/80" : "text-muted-foreground")}>Parent phone contacts</div>
-                      </div>
-                    </div>
-                    <div className={cn("size-4 rounded-full border flex items-center justify-center shrink-0", noticeAudience === "parents" ? "border-white bg-white text-primary" : "border-slate-300")}>
-                      {noticeAudience === "parents" && <div className="size-2 rounded-full bg-primary" />}
-                    </div>
-                  </button>
-
-                  {/* Option 3: Both Students & Parents */}
-                  <button
-                    type="button"
-                    onClick={() => setNoticeAudience("both")}
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer text-left",
-                      noticeAudience === "both"
-                        ? "border-primary bg-primary text-white shadow-sm ring-1 ring-primary"
-                        : "border-[#e3e8e5] bg-white text-[#5e6b63] hover:text-[#1a201c] hover:border-[#cfd5d0]"
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Users className={cn("size-4 shrink-0", noticeAudience === "both" ? "text-white" : "text-primary")} />
-                      <div>
-                        <div className="font-bold">Both (Students & Parents)</div>
-                        <div className={cn("text-[10px] font-normal", noticeAudience === "both" ? "text-white/80" : "text-muted-foreground")}>All associated parties</div>
-                      </div>
-                    </div>
-                    <div className={cn("size-4 rounded-full border flex items-center justify-center shrink-0", noticeAudience === "both" ? "border-white bg-white text-primary" : "border-slate-300")}>
-                      {noticeAudience === "both" && <div className="size-2 rounded-full bg-primary" />}
-                    </div>
-                  </button>
+                  {(
+                    [
+                      { key: "NORMAL", label: "Normal" },
+                      { key: "HIGH", label: "Important" },
+                      { key: "URGENT", label: "Urgent" },
+                    ] as const
+                  ).map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => setNoticePriority(p.key)}
+                      className={cn(
+                        "py-2 px-3 rounded-xl border text-center transition-all cursor-pointer text-xs font-semibold",
+                        noticePriority === p.key
+                          ? "border-primary bg-primary text-white shadow-sm ring-1 ring-primary"
+                          : "border-[#e3e8e5] bg-white text-[#5e6b63] hover:text-[#1a201c] hover:border-[#cfd5d0]"
+                      )}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <Input
-                value={noticeTitle}
-                onChange={(e) => setNoticeTitle(e.target.value)}
-                placeholder="Notice headline (e.g. Extra Doubt Clearing Lecture on Saturday)"
-                className="h-10 text-xs bg-white border-[#e3e8e5] rounded-xl focus:border-primary focus-visible:ring-1 focus-visible:ring-primary/25"
-              />
               <Textarea
                 value={noticeMessage}
                 onChange={(e) => setNoticeMessage(e.target.value)}
-                placeholder="Share an update or notice with students and parents of this batch..."
+                placeholder="Write an announcement..."
                 className="min-h-[90px] text-xs bg-white border-[#e3e8e5] rounded-xl focus:border-primary focus-visible:ring-1 focus-visible:ring-primary/25"
               />
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-1">
-                <div className="flex items-center gap-2 text-[11px] text-[#5e6b63]">
-                  <span className="inline-flex size-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>
-                    {noticeAudience === "students" && "Dispatches immediate SMS & WhatsApp alerts to enrolled batch students only."}
-                    {noticeAudience === "parents" && "Dispatches immediate SMS & WhatsApp alerts to registered parents only."}
-                    {noticeAudience === "both" && "Dispatches immediate SMS & WhatsApp alerts to all students and their parents."}
-                  </span>
-                </div>
+              <div className="flex justify-end pt-1">
                 <Button
                   size="sm"
                   onClick={handlePostNotice}
@@ -927,71 +990,93 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
                   className="h-9 px-4 text-xs font-semibold bg-primary hover:bg-primary-hover text-white rounded-xl shadow-sm focus:outline-none focus-visible:outline-none cursor-pointer shrink-0"
                 >
                   <Send className="size-3.5 mr-1.5" />
-                  Post Notice
+                  {isSubmittingNotice ? "Posting..." : "Post announcement"}
                 </Button>
               </div>
             </div>
 
             {/* Announcements List */}
             <div className="space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#5e6b63]">
-                Previous Batch Notices ({announcementsList.length})
-              </h3>
-              <div className="divide-y divide-[#e7e9ed] border border-[#e7e9ed] rounded-xl bg-white overflow-hidden">
-                {announcementsList.map((notice) => {
-                  const isBoth =
-                    notice.targetAudience === "both" ||
-                    (!notice.targetAudience &&
-                      notice.meta.toLowerCase().includes("parent") &&
-                      notice.meta.toLowerCase().includes("student"))
-                  const isParents =
-                    notice.targetAudience === "parents" ||
-                    (!notice.targetAudience &&
-                      notice.meta.toLowerCase().includes("parent") &&
-                      !notice.meta.toLowerCase().includes("student"))
-                  const isStudents =
-                    notice.targetAudience === "students" ||
-                    (!notice.targetAudience && !isBoth && !isParents)
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#5e6b63]">
+                  Announcements ({announcementsList.length})
+                </h3>
+              </div>
 
-                  return (
+              {announcementsList.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[#e7e9ed] bg-white p-10 text-center space-y-2">
+                  <div className="size-10 rounded-full bg-primary-light text-primary flex items-center justify-center mx-auto mb-1">
+                    <Megaphone className="size-5" />
+                  </div>
+                  <h4 className="text-sm font-semibold text-[#15171b]">No announcements yet</h4>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#e7e9ed] border border-[#e7e9ed] rounded-xl bg-white overflow-hidden shadow-2xs">
+                  {announcementsList.map((notice) => (
                     <div
                       key={notice.id}
-                      onClick={() =>
-                        toast({
-                          title: notice.title,
-                          description: `${notice.meta} — ${notice.body}`,
-                        })
-                      }
-                      className="p-5 flex gap-4 hover:bg-[#fafbfc] transition-colors cursor-pointer group"
+                      className="p-5 flex gap-4 hover:bg-[#fafbfc] transition-colors group"
                     >
                       <div className="size-9 rounded-xl bg-primary-light text-primary flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-white transition-colors">
                         <Megaphone className="size-4" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="text-sm font-bold text-[#15171b] group-hover:text-primary transition-colors">
-                            {notice.title}
-                          </h4>
-                          <span
-                            className={cn(
-                              "text-[10px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1",
-                              isStudents && "bg-blue-50 text-blue-700 border border-blue-200",
-                              isParents && "bg-purple-50 text-purple-700 border border-purple-200",
-                              isBoth && "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={cn(
+                                "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                                notice.priority === "URGENT"
+                                  ? "bg-rose-100 text-rose-800 border border-rose-200"
+                                  : notice.priority === "HIGH"
+                                  ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                  : "bg-blue-100 text-blue-800 border border-blue-200"
+                              )}
+                            >
+                              {notice.priority}
+                            </span>
+                            {notice.authorRole === "ADMIN" ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-800 border border-purple-200 uppercase tracking-wider">
+                                <ShieldCheck className="size-3 text-purple-600" />
+                                Admin, {notice.authorName}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 uppercase tracking-wider">
+                                <GraduationCap className="size-3 text-blue-600" />
+                                Teacher, {notice.authorName}
+                              </span>
                             )}
-                          >
-                            {isStudents && "Students Only"}
-                            {isParents && "Parents Only"}
-                            {isBoth && "Students & Parents"}
-                          </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-[#8b9a90] font-mono">
+                              {new Date(notice.createdAt).toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={isDeletingNoticeId === notice.id}
+                              onClick={() => handleDeleteNotice(notice.id)}
+                              className="size-7 p-0 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
+                              title="Delete announcement"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </div>
                         </div>
-                        <p className="text-[11px] text-[#8b9a90] mt-0.5">{notice.meta}</p>
-                        <p className="text-xs text-[#45484f] mt-2 leading-relaxed">{notice.body}</p>
+
+                        <p className="text-xs text-[#45484f] leading-relaxed whitespace-pre-line">
+                          {notice.content}
+                        </p>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
@@ -1030,18 +1115,19 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
                 <label className="text-xs font-semibold text-[#1a201c]">
                   Select Student to Enroll *
                 </label>
-                <select
+                <CustomSelect
                   value={selectedStudentToEnroll}
-                  onChange={(e) => setSelectedStudentToEnroll(e.target.value)}
-                  className="w-full h-10 px-3 text-xs bg-white border border-[#e3e8e5] rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/25 focus:border-primary transition-all text-[#1a201c] cursor-pointer"
-                >
-                  <option value="">-- Choose a student --</option>
-                  {availableStudents.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} {s.phoneNo ? `(${s.phoneNo})` : ""}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedStudentToEnroll}
+                  options={availableStudents.map((s) => ({
+                    value: s.id,
+                    label: s.name,
+                    description: s.phoneNo ? `Phone: ${s.phoneNo}` : undefined,
+                  }))}
+                  placeholder="-- Choose a student --"
+                  searchPlaceholder="Search students by name or phone..."
+                  searchable={true}
+                  className="w-full"
+                />
                 <p className="text-[11px] text-[#8b9a90]">
                   {availableStudents.length} candidate students available for enrollment.
                 </p>
@@ -1065,6 +1151,121 @@ export function BatchWorkspace({ batch, availableStudents }: BatchWorkspaceProps
               className="text-xs h-9 bg-primary hover:bg-primary-hover text-white rounded-xl focus:outline-none focus-visible:outline-none"
             >
               {isEnrolling ? "Enrolling..." : "Confirm Enrollment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Enroll / Change Faculty in Batch Dialog */}
+      <Dialog open={enrollTeacherOpen} onOpenChange={setEnrollTeacherOpen}>
+        <DialogContent className="sm:max-w-[480px] p-6 bg-white rounded-2xl border border-[#e7e9ed] shadow-lg">
+          <DialogHeader>
+            <div className="size-10 rounded-xl bg-primary-light text-primary flex items-center justify-center mb-2">
+              <GraduationCap className="size-5" />
+            </div>
+            <DialogTitle className="text-base font-bold text-[#15171b]">
+              {batch.teacher ? "Manage Batch Faculty" : `Enroll Teacher into ${displayName}`}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#5e6b63]">
+              Assign an active faculty teacher to lead this batch. This batch will automatically sync to their Teacher Portal.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Current Status Box if teacher assigned */}
+          {batch.teacher ? (
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="size-9 rounded-full bg-primary/10 text-primary font-bold text-sm flex items-center justify-center shrink-0">
+                  {batch.teacher.name.charAt(0)}
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-[#1a201c]">{batch.teacher.name}</div>
+                  <div className="text-[11px] text-[#5e6b63]">
+                    {batch.teacher.subjects ? `Faculty for ${batch.teacher.subjects}` : "Assigned Faculty"}
+                    {batch.teacher.email ? ` · ${batch.teacher.email}` : ""}
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleUnassignTeacher}
+                disabled={isAssigningTeacher}
+                className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 px-2.5 rounded-lg shrink-0"
+              >
+                Unassign
+              </Button>
+            </div>
+          ) : (
+            <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-xl flex items-center gap-2.5 text-xs text-amber-900">
+              <div className="size-2 rounded-full bg-amber-500 shrink-0" />
+              <span>No faculty is currently assigned. Enrolling a teacher links their portal to this batch.</span>
+            </div>
+          )}
+
+          <div className="space-y-4 py-2">
+            {availableTeachers.length === 0 ? (
+              <div className="p-4 rounded-xl border border-dashed border-[#e3e8e5] bg-[#f8faf9] text-center space-y-2">
+                <GraduationCap className="size-8 mx-auto text-[#8b9a90] opacity-50" />
+                <p className="text-xs font-semibold text-[#1a201c]">No Active Teachers Registered</p>
+                <p className="text-[11px] text-[#5e6b63]">
+                  Please add faculty members to your institute first before enrolling them into batches.
+                </p>
+                <Link
+                  href="/institute/teachers"
+                  className="inline-flex text-xs font-semibold text-primary hover:underline cursor-pointer"
+                >
+                  + Add New Teacher in Faculty Directory
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-[#1a201c]">
+                  Select Faculty to Enroll *
+                </label>
+                <CustomSelect
+                  value={selectedTeacherId}
+                  onChange={setSelectedTeacherId}
+                  options={availableTeachers.map((t) => ({
+                    value: t.id,
+                    label: t.name,
+                    description: t.subjects
+                      ? `Subjects: ${t.subjects}${t.email ? ` · ${t.email}` : t.phoneNo ? ` · ${t.phoneNo}` : ""}`
+                      : t.email || t.phoneNo || undefined,
+                  }))}
+                  placeholder="-- Choose a faculty instructor --"
+                  searchPlaceholder="Search faculty by name or subject..."
+                  searchable={true}
+                  className="w-full"
+                />
+                <p className="text-[11px] text-[#8b9a90]">
+                  {availableTeachers.length} active faculty members registered in your institute.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEnrollTeacherOpen(false)}
+              className="text-xs h-9 border-[#e3e8e5] rounded-xl focus:outline-none focus-visible:outline-none"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={
+                isAssigningTeacher ||
+                !selectedTeacherId ||
+                batch.teacher?.id === selectedTeacherId ||
+                availableTeachers.length === 0
+              }
+              onClick={handleEnrollTeacherSubmit}
+              className="text-xs h-9 bg-primary hover:bg-primary-hover text-white rounded-xl focus:outline-none focus-visible:outline-none"
+            >
+              {isAssigningTeacher ? "Enrolling..." : "Confirm Faculty Enrollment"}
             </Button>
           </DialogFooter>
         </DialogContent>

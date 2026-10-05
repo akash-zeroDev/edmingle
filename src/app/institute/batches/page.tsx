@@ -1,20 +1,13 @@
 import prisma from "@/lib/prisma"
-import { currentUser } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
+import { getAuthenticatedInstitute } from "@/lib/current-institute"
 import { AddBatchDialog } from "./components/add-batch-dialog"
 import { BatchesTable } from "./components/batches-table"
 
 export default async function BatchesPage() {
-  const user = await currentUser()
-  const email = user?.emailAddresses[0]?.emailAddress
-
-  if (!email) redirect("/")
-
-  const institute = await prisma.institute.findFirst({
-    where: { adminEmail: email },
-  })
-
-  if (!institute) redirect("/onboarding")
+  const authData = await getAuthenticatedInstitute()
+  if (!authData?.institute) redirect("/onboarding")
+  const institute = authData.institute
 
   // Fetch batches with teacher details and student counts
   const batches = await prisma.batch.findMany({
@@ -45,9 +38,6 @@ export default async function BatchesPage() {
           <h1 className="text-[25px] font-bold tracking-tight text-[#15171b] leading-tight">
             Batches
           </h1>
-          <p className="text-[13px] text-[#5f636d] mt-1.5">
-            Manage batches, schedules, and assigned teachers.
-          </p>
         </div>
         <div className="flex w-full sm:w-auto gap-2">
           <AddBatchDialog teachers={teachers} />

@@ -24,6 +24,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { CustomSelect } from "@/components/ui/custom-select"
 import { useToast } from "@/hooks/use-toast"
 import { createBatch } from "@/actions/batch"
 
@@ -89,8 +90,8 @@ export function AddBatchDialog({ teachers = [] }: { teachers: TeacherOption[] })
         })
       } else {
         toast({
-          title: "Batch Created Successfully",
-          description: `${values.className} - ${values.batchName} (${values.subject}) has been established.`,
+          title: "Batch created",
+          description: `${values.className} - ${values.batchName} created.`,
         })
         form.reset()
         setOpen(false)
@@ -119,9 +120,9 @@ export function AddBatchDialog({ teachers = [] }: { teachers: TeacherOption[] })
           <div className="w-10 h-10 rounded-xl bg-primary-light text-primary flex items-center justify-center mb-3">
             <Layers3 className="w-5 h-5" />
           </div>
-          <DialogTitle className="text-lg font-bold text-[#1a201c]">Create New Study Batch</DialogTitle>
+          <DialogTitle className="text-lg font-bold text-[#1a201c]">New batch</DialogTitle>
           <DialogDescription className="text-xs text-[#5e6b63]">
-            Associate a class/grade, batch name, subject curriculum, and lecture schedule.
+            Add a batch with a schedule and assigned teacher.
           </DialogDescription>
         </DialogHeader>
 
@@ -165,13 +166,13 @@ export function AddBatchDialog({ teachers = [] }: { teachers: TeacherOption[] })
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-xs font-semibold text-[#1a201c]">
-                      Batch Name *
+                      Batch name *
                     </FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Sparkles className="absolute left-3 top-2.5 h-4 w-4 text-[#8b9a90]" />
                         <Input
-                          placeholder="e.g. Batch A (JEE Target)"
+                          placeholder="e.g. Batch A"
                           className="pl-9 h-10 border-[#e3e8e5] text-xs rounded-xl focus:border-primary focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/25 transition-all"
                           {...field}
                         />
@@ -238,20 +239,23 @@ export function AddBatchDialog({ teachers = [] }: { teachers: TeacherOption[] })
                     Teacher (Optional)
                   </FormLabel>
                   <FormControl>
-                    <div className="relative">
-                      <UserSquare2 className="absolute left-3 top-2.5 h-4 w-4 text-[#8b9a90]" />
-                      <select
-                        {...field}
-                        className="w-full h-10 pl-9 pr-4 text-xs bg-white border border-[#e3e8e5] rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/25 focus:border-primary transition-all text-[#1a201c] cursor-pointer"
-                      >
-                        <option value="none">Unassigned</option>
-                        {teachers.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.name} {t.subjects ? `(${t.subjects})` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <CustomSelect
+                      value={field.value || "none"}
+                      onChange={field.onChange}
+                      options={[
+                        { value: "none", label: "Unassigned" },
+                        ...teachers.map((t) => ({
+                          value: t.id,
+                          label: t.name,
+                          description: t.subjects ? `Subjects: ${t.subjects}` : undefined,
+                        })),
+                      ]}
+                      icon={UserSquare2}
+                      placeholder="Select teacher"
+                      searchPlaceholder="Search teachers..."
+                      searchable={teachers.length > 5}
+                      className="w-full h-10"
+                    />
                   </FormControl>
                   <FormMessage className="text-[11px]" />
                 </FormItem>

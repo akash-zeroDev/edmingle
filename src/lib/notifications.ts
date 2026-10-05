@@ -49,9 +49,9 @@ Dear ${recipientName},
 
 This is an official communication informing you that your status as a ${targetLabel.toLowerCase()}${batchDetails} at ${instituteName} has been ${actionText.toUpperCase()}.
 
-• Action: ${action}
-• Effective Immediately
-• Reason / Notes: ${reasonText}
+- Action: ${action}
+- Effective immediately
+- Reason: ${reasonText}
 
 If you believe this is an error or have questions regarding this decision, please reach out to the institute administration immediately.
 
@@ -100,3 +100,105 @@ ${instituteName}
     deliveredAt: new Date().toISOString(),
   };
 }
+
+export interface FeeReceiptNoticePayload {
+  studentName: string;
+  parentPhone?: string | null;
+  studentPhone?: string | null;
+  parentEmail?: string | null;
+  instituteName: string;
+  receiptNo: string;
+  amount: number;
+  paymentMode: string;
+  remainingBalance: number;
+  batchName: string;
+}
+
+export async function dispatchFeeReceiptNotice(payload: FeeReceiptNoticePayload) {
+  const {
+    studentName,
+    parentPhone,
+    studentPhone,
+    parentEmail,
+    instituteName,
+    receiptNo,
+    amount,
+    paymentMode,
+    remainingBalance,
+    batchName,
+  } = payload;
+
+  const formattedAmount = `₹${amount.toLocaleString("en-IN")}`;
+  const formattedBalance = `₹${remainingBalance.toLocaleString("en-IN")}`;
+
+  const whatsappMessage = `*Payment receipt from ${instituteName}*\n\nDear Parent/Student,\nWe have received fee payment of *${formattedAmount}* via *${paymentMode}* for *${studentName}* (${batchName}).\n\n- Receipt No: ${receiptNo}\n- Remaining balance: ${formattedBalance}\n- Date: ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}\n\nThank you,\n${instituteName}`;
+
+  const smsMessage = `[${instituteName}] Fee Payment Received: ${formattedAmount} for ${studentName} (${batchName}) via ${paymentMode}. Receipt #${receiptNo}. Balance Due: ${formattedBalance}.`;
+
+  const recipients = {
+    emails: parentEmail ? [parentEmail] : [],
+    phones: [parentPhone, studentPhone].filter(Boolean) as string[],
+  };
+
+  console.log(`\n💳 [FEE RECEIPT NOTIFICATION] ================================`);
+  console.log(`Institute: ${instituteName} | Receipt: ${receiptNo}`);
+  console.log(`Student: ${studentName} | Amount: ${formattedAmount}`);
+  if (recipients.phones.length > 0) {
+    console.log(`📱 WhatsApp/SMS queued for: ${recipients.phones.join(", ")}`);
+    console.log(`   Message: ${smsMessage}`);
+  }
+  console.log(`============================================================\n`);
+
+  return {
+    success: true,
+    recipients,
+    whatsappMessage,
+    smsMessage,
+    deliveredAt: new Date().toISOString(),
+  };
+}
+
+export interface FeeReminderNoticePayload {
+  studentName: string;
+  parentPhone?: string | null;
+  studentPhone?: string | null;
+  instituteName: string;
+  amountDue: number;
+  dueDate: string;
+  batchName: string;
+}
+
+export async function dispatchFeeReminderNotice(payload: FeeReminderNoticePayload) {
+  const {
+    studentName,
+    parentPhone,
+    studentPhone,
+    instituteName,
+    amountDue,
+    dueDate,
+    batchName,
+  } = payload;
+
+  const formattedAmount = `₹${amountDue.toLocaleString("en-IN")}`;
+
+  const whatsappMessage = `*Fee Payment Reminder · ${instituteName}*\n\nDear Parent,\nThis is a gentle reminder that the academic fee of *${formattedAmount}* for *${studentName}* (${batchName}) is due on *${dueDate}*.\n\nPlease clear the dues at the center reception counter or scan the UPI QR code.\n\nThank you,\nAdministration, ${instituteName}`;
+
+  const smsMessage = `[${instituteName}] Reminder: Fee of ${formattedAmount} for ${studentName} (${batchName}) is due on ${dueDate}. Please pay at reception desk or via UPI.`;
+
+  const recipients = [parentPhone, studentPhone].filter(Boolean) as string[];
+
+  console.log(`\n🔔 [FEE REMINDER NOTIFICATION] ==============================`);
+  console.log(`Institute: ${instituteName} | Target: ${studentName}`);
+  console.log(`Amount Due: ${formattedAmount} | Due Date: ${dueDate}`);
+  console.log(`📱 SMS/WhatsApp queued for: ${recipients.join(", ")}`);
+  console.log(`============================================================\n`);
+
+  return {
+    success: true,
+    recipients,
+    whatsappMessage,
+    smsMessage,
+    deliveredAt: new Date().toISOString(),
+  };
+}
+

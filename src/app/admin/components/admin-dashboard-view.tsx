@@ -160,11 +160,8 @@ export function AdminDashboardView({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Platform Master Console
+            Dashboard
           </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Super Administrator live telemetry across registered institutes, financial health, and academic activity.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <AddInstituteDialog />
@@ -183,7 +180,7 @@ export function AdminDashboardView({
         <div className="rounded-lg border border-border bg-card p-4 transition-all hover:shadow-sm">
           <div className="flex items-start justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Total SaaS Revenue
+              Total revenue
             </span>
             <div className="grid size-8 place-items-center rounded-lg bg-primary-light text-primary">
               <IndianRupee className="size-4" />
@@ -212,7 +209,7 @@ export function AdminDashboardView({
         <div className="rounded-lg border border-border bg-card p-4 transition-all hover:shadow-sm">
           <div className="flex items-start justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Institutes Onboarded
+              Institutes
             </span>
             <div className="grid size-8 place-items-center rounded-lg bg-primary-light text-primary">
               <Building2 className="size-4" />
@@ -262,7 +259,7 @@ export function AdminDashboardView({
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-purple-600">
             <ShieldCheck className="size-3.5" />
-            <span>Instructors teaching ({batchesCount} batches)</span>
+            <span>Teachers ({batchesCount} batches)</span>
           </div>
         </div>
       </div>
@@ -274,7 +271,7 @@ export function AdminDashboardView({
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div>
               <h2 className="text-sm font-semibold text-foreground">Platform Revenue Growth</h2>
-              <p className="text-[11px] text-muted-foreground">Monthly subscription and licensing receipts (Live Database Aggregate)</p>
+              <p className="text-[11px] text-muted-foreground">Monthly subscription receipts</p>
             </div>
             <span className="inline-flex items-center gap-1 rounded-full bg-primary-light px-2.5 py-0.5 text-[10px] font-semibold text-primary">
               Calendar 2026
@@ -355,7 +352,7 @@ export function AdminDashboardView({
 
             <div className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Platform Safeguards
+                Status
               </h3>
               <div className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-background">
                 <div className="flex items-center gap-2">
@@ -380,7 +377,7 @@ export function AdminDashboardView({
             {/* Active Subscriptions Breakdown */}
             <div className="pt-2 border-t border-border/60">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
-                Active Subscription Tiers
+                Subscription plans
               </span>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-light text-primary border border-primary/20">
@@ -401,7 +398,7 @@ export function AdminDashboardView({
               href="/admin/institutes"
               className="flex items-center justify-between text-xs font-medium text-primary hover:underline"
             >
-              <span>View all institutes roster</span>
+              <span>View all institutes</span>
               <ChevronRight className="size-3.5" />
             </Link>
           </div>
@@ -440,7 +437,7 @@ export function AdminDashboardView({
             prefetch={true}
             className="text-xs font-medium text-primary hover:underline flex items-center gap-1 cursor-pointer"
           >
-            <span>View Full Directory ({institutesCount})</span>
+            <span>View all ({institutesCount})</span>
             <ExternalLink className="size-3" />
           </Link>
         </div>
@@ -448,18 +445,18 @@ export function AdminDashboardView({
         <div className={cn("transition-opacity duration-150", isTabPending ? "opacity-60" : "opacity-100")}>
           {activeTab === "institutes" ? (
             <div className="overflow-x-auto animate-in fade-in duration-150">
-              <table className="w-full border-collapse text-xs">
+              <table className="w-full table-fixed min-w-[900px] border-collapse text-xs">
                 <thead className="bg-muted/50 text-muted-foreground border-b border-border">
                   <tr>
-                    <th className="h-9 px-4 text-left font-medium">Institute</th>
-                    <th className="h-9 px-4 text-left font-medium">Admin Email</th>
-                    <th className="h-9 px-4 text-left font-medium">Students</th>
-                    <th className="h-9 px-4 text-left font-medium">Faculty</th>
-                    <th className="h-9 px-4 text-left font-medium">Batches</th>
-                    <th className="h-9 px-4 text-left font-medium">Plan</th>
-                    <th className="h-9 px-4 text-left font-medium">Status</th>
-                    <th className="h-9 px-4 text-left font-medium">Billing</th>
-                    <th className="h-9 px-4 text-right font-medium">Joined</th>
+                    <th className="w-[30%] min-w-[200px] h-9 px-4 text-left font-medium">Institute</th>
+                    <th className="w-[18%] min-w-[150px] h-9 px-4 text-left font-medium">Admin Email</th>
+                    <th className="w-[7%] h-9 px-3 text-center font-medium">Students</th>
+                    <th className="w-[7%] h-9 px-3 text-center font-medium">Teachers</th>
+                    <th className="w-[7%] h-9 px-3 text-center font-medium">Batches</th>
+                    <th className="w-[7%] h-9 px-3 text-left font-medium">Plan</th>
+                    <th className="w-[8%] h-9 px-3 text-left font-medium">Status</th>
+                    <th className="w-[8%] h-9 px-3 text-left font-medium">Billing</th>
+                    <th className="w-[8%] h-9 px-4 text-right font-medium">Joined</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -472,21 +469,32 @@ export function AdminDashboardView({
                   ) : (
                     recentInstitutes.map((inst) => (
                       <tr key={inst.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="h-11 px-4 font-semibold text-foreground">
-                          <Link href={`/admin/institutes`} className="hover:text-primary transition-colors">
+                        <td className="py-2.5 px-4 font-semibold text-foreground align-middle">
+                          <Link
+                            href={`/admin/institutes`}
+                            title={inst.name}
+                            className="hover:text-primary transition-colors block break-words whitespace-normal leading-snug"
+                          >
                             {inst.name}
                           </Link>
                         </td>
-                        <td className="h-11 px-4 text-muted-foreground">{inst.adminEmail}</td>
-                        <td className="h-11 px-4 text-foreground font-medium">{inst.studentsCount}</td>
-                        <td className="h-11 px-4 text-foreground font-medium">{inst.teachersCount}</td>
-                        <td className="h-11 px-4 text-foreground font-medium">{inst.batchesCount}</td>
-                        <td className="h-11 px-4">
+                        <td className="py-2.5 px-4 text-muted-foreground align-middle">
+                          <span
+                            className="block truncate text-xs font-normal max-w-[170px]"
+                            title={inst.adminEmail}
+                          >
+                            {inst.adminEmail}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-foreground font-medium text-center align-middle">{inst.studentsCount}</td>
+                        <td className="py-2.5 px-3 text-foreground font-medium text-center align-middle">{inst.teachersCount}</td>
+                        <td className="py-2.5 px-3 text-foreground font-medium text-center align-middle">{inst.batchesCount}</td>
+                        <td className="py-2.5 px-3 align-middle">
                           <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-semibold bg-primary-light text-primary border border-primary/20">
                             {inst.subscriptionType}
                           </span>
                         </td>
-                        <td className="h-11 px-4">
+                        <td className="py-2.5 px-3 align-middle">
                           {inst.isActive ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                               Active
@@ -497,7 +505,7 @@ export function AdminDashboardView({
                             </span>
                           )}
                         </td>
-                        <td className="h-11 px-4">
+                        <td className="py-2.5 px-3 align-middle">
                           <span
                             className={cn(
                               "inline-flex px-2 py-0.5 rounded text-[10px] font-semibold",
@@ -509,7 +517,7 @@ export function AdminDashboardView({
                             {inst.paymentStatus}
                           </span>
                         </td>
-                        <td className="h-11 px-4 text-right text-muted-foreground">{inst.joinedAt}</td>
+                        <td className="py-2.5 px-4 text-right text-muted-foreground align-middle whitespace-nowrap">{inst.joinedAt}</td>
                       </tr>
                     ))
                   )}
@@ -518,16 +526,16 @@ export function AdminDashboardView({
             </div>
           ) : (
             <div className="overflow-x-auto animate-in fade-in duration-150">
-              <table className="w-full border-collapse text-xs">
+              <table className="w-full table-fixed min-w-[850px] border-collapse text-xs">
                 <thead className="bg-muted/50 text-muted-foreground border-b border-border">
                   <tr>
-                    <th className="h-9 px-4 text-left font-medium">Invoice ID</th>
-                    <th className="h-9 px-4 text-left font-medium">Institute</th>
-                    <th className="h-9 px-4 text-left font-medium">Plan</th>
-                    <th className="h-9 px-4 text-left font-medium">Amount</th>
-                    <th className="h-9 px-4 text-left font-medium">Status</th>
-                    <th className="h-9 px-4 text-left font-medium">Due Date</th>
-                    <th className="h-9 px-4 text-right font-medium">Created</th>
+                    <th className="w-[16%] h-9 px-4 text-left font-medium">Invoice ID</th>
+                    <th className="w-[30%] min-w-[200px] h-9 px-4 text-left font-medium">Institute</th>
+                    <th className="w-[10%] h-9 px-4 text-left font-medium">Plan</th>
+                    <th className="w-[14%] h-9 px-4 text-left font-medium">Amount</th>
+                    <th className="w-[10%] h-9 px-4 text-left font-medium">Status</th>
+                    <th className="w-[10%] h-9 px-4 text-left font-medium">Due Date</th>
+                    <th className="w-[10%] h-9 px-4 text-right font-medium">Created</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -540,17 +548,24 @@ export function AdminDashboardView({
                   ) : (
                     recentInvoices.map((inv) => (
                       <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="h-11 px-4 font-mono font-medium text-foreground">
+                        <td className="py-2.5 px-4 font-mono font-medium text-foreground align-middle">
                           #{inv.id.slice(-6).toUpperCase()}
                         </td>
-                        <td className="h-11 px-4 font-semibold text-foreground">{inv.instituteName}</td>
-                        <td className="h-11 px-4">
+                        <td className="py-2.5 px-4 font-semibold text-foreground align-middle">
+                          <span
+                            title={inv.instituteName}
+                            className="block break-words whitespace-normal leading-snug"
+                          >
+                            {inv.instituteName}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 align-middle">
                           <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-semibold bg-muted text-foreground border border-border">
                             {inv.subscriptionType || "PRO"}
                           </span>
                         </td>
-                        <td className="h-11 px-4 font-bold text-foreground">₹{inv.amount.toLocaleString("en-IN")}</td>
-                        <td className="h-11 px-4">
+                        <td className="py-2.5 px-4 font-bold text-foreground align-middle">₹{inv.amount.toLocaleString("en-IN")}</td>
+                        <td className="py-2.5 px-4 align-middle">
                           <span
                             className={cn(
                               "inline-flex px-2 py-0.5 rounded text-[10px] font-semibold",
@@ -562,8 +577,8 @@ export function AdminDashboardView({
                             {inv.status}
                           </span>
                         </td>
-                        <td className="h-11 px-4 text-muted-foreground">{inv.dueDate}</td>
-                        <td className="h-11 px-4 text-right text-muted-foreground">{inv.createdAt}</td>
+                        <td className="py-2.5 px-4 text-muted-foreground align-middle whitespace-nowrap">{inv.dueDate}</td>
+                        <td className="py-2.5 px-4 text-right text-muted-foreground align-middle whitespace-nowrap">{inv.createdAt}</td>
                       </tr>
                     ))
                   )}

@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import { currentUser } from "@clerk/nextjs/server"
+import { getAuthenticatedInstitute } from "@/lib/current-institute"
 import { z } from "zod"
 
 const batchSchema = z.object({
@@ -15,23 +16,11 @@ const batchSchema = z.object({
 
 export async function createBatch(formData: FormData) {
   try {
-    const user = await currentUser()
-    if (!user || user.publicMetadata?.role !== "institute_admin") {
+    const authData = await getAuthenticatedInstitute()
+    if (!authData?.institute) {
       return { error: "Unauthorized. Institute admin access required." }
     }
-
-    const email = user.emailAddresses[0]?.emailAddress
-    if (!email) {
-      return { error: "User email not found" }
-    }
-
-    const institute = await prisma.institute.findFirst({
-      where: { adminEmail: email },
-    })
-
-    if (!institute) {
-      return { error: "Institute not found" }
-    }
+    const institute = authData.institute
 
     const className = (formData.get("className") as string)?.trim()
     const batchName = (formData.get("batchName") as string)?.trim()
@@ -80,19 +69,11 @@ export async function createBatch(formData: FormData) {
 
 export async function deleteBatch(batchId: string) {
   try {
-    const user = await currentUser()
-    if (!user || user.publicMetadata?.role !== "institute_admin") {
+    const authData = await getAuthenticatedInstitute()
+    if (!authData?.institute) {
       return { error: "Unauthorized" }
     }
-
-    const email = user.emailAddresses[0]?.emailAddress
-    if (!email) return { error: "User email not found" }
-
-    const institute = await prisma.institute.findFirst({
-      where: { adminEmail: email },
-    })
-
-    if (!institute) return { error: "Institute not found" }
+    const institute = authData.institute
 
     // Ensure batch belongs to this institute
     const batch = await prisma.batch.findFirst({
@@ -125,19 +106,11 @@ export async function deleteBatch(batchId: string) {
 
 export async function updateBatch(batchId: string, formData: FormData) {
   try {
-    const user = await currentUser()
-    if (!user || user.publicMetadata?.role !== "institute_admin") {
+    const authData = await getAuthenticatedInstitute()
+    if (!authData?.institute) {
       return { error: "Unauthorized" }
     }
-
-    const email = user.emailAddresses[0]?.emailAddress
-    if (!email) return { error: "User email not found" }
-
-    const institute = await prisma.institute.findFirst({
-      where: { adminEmail: email },
-    })
-
-    if (!institute) return { error: "Institute not found" }
+    const institute = authData.institute
 
     const batch = await prisma.batch.findFirst({
       where: { id: batchId, instituteId: institute.id },
@@ -179,18 +152,11 @@ export async function updateBatch(batchId: string, formData: FormData) {
 
 export async function enrollStudentInBatch(batchId: string, studentId: string) {
   try {
-    const user = await currentUser()
-    if (!user || user.publicMetadata?.role !== "institute_admin") {
+    const authData = await getAuthenticatedInstitute()
+    if (!authData?.institute) {
       return { error: "Unauthorized" }
     }
-
-    const email = user.emailAddresses[0]?.emailAddress
-    if (!email) return { error: "User email not found" }
-
-    const institute = await prisma.institute.findFirst({
-      where: { adminEmail: email },
-    })
-    if (!institute) return { error: "Institute not found" }
+    const institute = authData.institute
 
     const batch = await prisma.batch.findFirst({
       where: { id: batchId, instituteId: institute.id },
@@ -228,18 +194,11 @@ export async function enrollStudentInBatch(batchId: string, studentId: string) {
 
 export async function removeStudentFromBatch(batchId: string, studentId: string) {
   try {
-    const user = await currentUser()
-    if (!user || user.publicMetadata?.role !== "institute_admin") {
+    const authData = await getAuthenticatedInstitute()
+    if (!authData?.institute) {
       return { error: "Unauthorized" }
     }
-
-    const email = user.emailAddresses[0]?.emailAddress
-    if (!email) return { error: "User email not found" }
-
-    const institute = await prisma.institute.findFirst({
-      where: { adminEmail: email },
-    })
-    if (!institute) return { error: "Institute not found" }
+    const institute = authData.institute
 
     const deleted = await prisma.batchEnrollment.deleteMany({
       where: {
@@ -260,6 +219,95 @@ export async function removeStudentFromBatch(batchId: string, studentId: string)
   } catch (error: any) {
     console.error("Error removing student from batch:", error)
     return { error: error.message || "Failed to remove student from batch" }
+  }
+}
+
+export async function enrollTeacherInBatch(batchId: string, teacherId: string | null) {
+  try {
+    const authData = await getAuthenticatedInstitute()
+    if (!authData?.institute) {
+      return { error: "Unauthorized. Please log in." }
+    }
+    const institute = authData.institute
+
+    const batch = await prisma.batch.findFirst({
+      where: { id: batchId, instituteId: institute.id },
+    })
+    if (!batch) return { error: "Batch not found" }
+
+    if (teacherId && teacherId !== "none" && teacherId.trim() !== "") {
+      const teacher = await prisma.teacher.findFirst({
+        where: { id: teacherId, instituteId: institute.id },
+      })
+      if (!teacher) {
+        return { error: "Teacher not found or does not belong to your institute." }
+      }
+
+      await prisma.batch.update({
+        where: { id: batchId },
+        data: { teacherId: teacher.id },
+      })
+
+      revalidatePath(`/institute/batches/${batchId}`)
+      revalidatePath("/institute/batches")
+      revalidatePath("/institute/teachers")
+      revalidatePath("/teacher")
+      return { success: true, message: `${teacher.name} has been enrolled as the faculty instructor for this batch.` }
+    } else {
+      await prisma.batch.update({
+        where: { id: batchId },
+        data: { teacherId: null },
+      })
+
+      revalidatePath(`/institute/batches/${batchId}`)
+      revalidatePath("/institute/batches")
+      revalidatePath("/institute/teachers")
+      revalidatePath("/teacher")
+      return { success: true, message: "Faculty has been unassigned from this batch." }
+    }
+  } catch (error: any) {
+    console.error("Error enrolling teacher in batch:", error)
+    return { error: error.message || "Failed to update batch faculty" }
+  }
+}
+
+export const assignTeacherToBatch = enrollTeacherInBatch
+
+export async function getInstituteBatches() {
+  try {
+    const authData = await getAuthenticatedInstitute()
+    if (!authData?.institute) return { error: "Institute not found or unauthorized" }
+    const institute = authData.institute
+
+    const batches = await prisma.batch.findMany({
+      where: { instituteId: institute.id },
+      include: {
+        teacher: {
+          select: { id: true, name: true },
+        },
+        _count: {
+          select: { students: true },
+        },
+      },
+      orderBy: [{ className: "asc" }, { batchName: "asc" }],
+    })
+
+    return {
+      success: true,
+      batches: batches.map((b) => ({
+        id: b.id,
+        className: b.className,
+        batchName: b.batchName,
+        subject: b.subject,
+        timing: b.timing,
+        teacherId: b.teacherId,
+        teacher: b.teacher ? { id: b.teacher.id, name: b.teacher.name } : null,
+        _count: { students: b._count.students },
+      })),
+    }
+  } catch (error: any) {
+    console.error("Error getting institute batches:", error)
+    return { error: error.message || "Failed to load batches" }
   }
 }
 

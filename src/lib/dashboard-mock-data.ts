@@ -140,10 +140,13 @@ export const mockTopPerformers = [
  * 7. GLOBAL SEARCH ITEMS (Search palette demo index)
  */
 export const searchIndex = [
+  { category: "Attendance", title: "Attendance", detail: "Daily attendance", link: "/institute/attendance" },
+  { category: "Teacher", title: "Teacher portal", detail: "Attendance and batches", link: "/teacher" },
   { category: "Students", title: "Aarav Sharma", detail: "JEE Advanced A", link: "/institute/students" },
   { category: "Students", title: "Priya Shah", detail: "NEET Elite", link: "/institute/students" },
   { category: "Batches", title: "JEE Advanced A", detail: "64 students", link: "/institute/batches" },
-  { category: "Teachers", title: "Dr. Rajiv Sharma", detail: "Physics Faculty", link: "/institute/teachers" },
+  { category: "Teachers", title: "Dr. Rajiv Sharma", detail: "Physics teacher", link: "/institute/teachers" },
   { category: "Payments", title: "Payment from Priya Shah", detail: "₹22,500 · Paid", link: "/institute/fees" },
+  { category: "Payroll", title: "Faculty Payroll", detail: "Salary and payslips", link: "/institute/payroll" },
   { category: "Tests", title: "Physics Unit Test", detail: "Published today", link: "/institute/batches" },
 ];

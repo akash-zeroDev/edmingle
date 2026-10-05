@@ -3,7 +3,9 @@
 import prisma from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import { currentUser, clerkClient } from "@clerk/nextjs/server"
+import { getAuthenticatedInstitute } from "@/lib/current-institute"
 import { dispatchNotice } from "@/lib/notifications"
+import { getAnnouncementsForStudent } from "@/actions/announcement"
 
 export async function enrollStudent(data: {
   name: string;
@@ -14,15 +16,9 @@ export async function enrollStudent(data: {
   batchId?: string;
 }) {
   try {
-    const user = await currentUser();
-    if (!user) throw new Error("Unauthorized");
-    const adminEmail = user.emailAddresses[0]?.emailAddress;
-
-    const institute = await prisma.institute.findFirst({
-      where: { adminEmail }
-    });
-
-    if (!institute) throw new Error("Institute not found");
+    const authData = await getAuthenticatedInstitute();
+    if (!authData?.institute) throw new Error("Institute not found or unauthorized");
+    const { institute, user } = authData;
 
     // Create the student
     const student = await prisma.student.create({
@@ -76,14 +72,9 @@ export async function enrollStudent(data: {
 
 export async function suspendStudent(studentId: string, reason?: string) {
   try {
-    const user = await currentUser();
-    if (!user) throw new Error("Unauthorized");
-    const adminEmail = user.emailAddresses[0]?.emailAddress;
-
-    const institute = await prisma.institute.findFirst({
-      where: { adminEmail },
-    });
-    if (!institute) throw new Error("Institute not found");
+    const authData = await getAuthenticatedInstitute();
+    if (!authData?.institute) throw new Error("Institute not found or unauthorized");
+    const { institute, user } = authData;
 
     const student = await prisma.student.findUnique({
       where: { id: studentId, instituteId: institute.id },
@@ -136,14 +127,9 @@ export async function suspendStudent(studentId: string, reason?: string) {
 
 export async function reactivateStudent(studentId: string) {
   try {
-    const user = await currentUser();
-    if (!user) throw new Error("Unauthorized");
-    const adminEmail = user.emailAddresses[0]?.emailAddress;
-
-    const institute = await prisma.institute.findFirst({
-      where: { adminEmail },
-    });
-    if (!institute) throw new Error("Institute not found");
+    const authData = await getAuthenticatedInstitute();
+    if (!authData?.institute) throw new Error("Institute not found or unauthorized");
+    const { institute, user } = authData;
 
     const student = await prisma.student.findUnique({
       where: { id: studentId, instituteId: institute.id },
@@ -191,14 +177,9 @@ export async function reactivateStudent(studentId: string) {
 
 export async function removeStudent(studentId: string, reason?: string) {
   try {
-    const user = await currentUser();
-    if (!user) throw new Error("Unauthorized");
-    const adminEmail = user.emailAddresses[0]?.emailAddress;
-
-    const institute = await prisma.institute.findFirst({
-      where: { adminEmail },
-    });
-    if (!institute) throw new Error("Institute not found");
+    const authData = await getAuthenticatedInstitute();
+    if (!authData?.institute) throw new Error("Institute not found or unauthorized");
+    const { institute, user } = authData;
 
     const student = await prisma.student.findUnique({
       where: { id: studentId, instituteId: institute.id },
@@ -251,14 +232,9 @@ export async function removeStudent(studentId: string, reason?: string) {
 
 export async function resendStudentInvitation(studentId: string) {
   try {
-    const user = await currentUser();
-    if (!user) throw new Error("Unauthorized");
-    const adminEmail = user.emailAddresses[0]?.emailAddress;
-
-    const institute = await prisma.institute.findFirst({
-      where: { adminEmail },
-    });
-    if (!institute) throw new Error("Institute not found");
+    const authData = await getAuthenticatedInstitute();
+    if (!authData?.institute) throw new Error("Institute not found or unauthorized");
+    const { institute, user } = authData;
 
     const student = await prisma.student.findUnique({
       where: { id: studentId, instituteId: institute.id },
@@ -380,6 +356,9 @@ export async function getStudentPortalData() {
       };
     }
 
+    const batchIds = student.batches.map((b) => b.batchId);
+    const announcements = await getAnnouncementsForStudent(student.instituteId, batchIds);
+
     return {
       success: true,
       student,
@@ -387,6 +366,7 @@ export async function getStudentPortalData() {
       batches: student.batches.map((b) => b.batch),
       fees: student.fees,
       attendance: student.attendance,
+      announcements,
     };
   } catch (err: any) {
     console.error("Error fetching student portal data:", err);

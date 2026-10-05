@@ -57,8 +57,8 @@ export default function OnboardingPage() {
         setIsSubmitting(false)
       } else if (result?.success) {
         toast({
-          title: "Setup completed!",
-          description: "Welcome to your institute dashboard.",
+          title: "Setup complete",
+          description: "Taking you to your dashboard.",
         })
         window.location.href = "/institute"
       }
@@ -83,7 +83,7 @@ export default function OnboardingPage() {
             </div>
             <h2 className="text-[24px] font-bold tracking-tight text-[#111318]">Set up your institute</h2>
             <p className="text-[14px] text-[#5f636d] mt-2">
-              Welcome to Edmingle! Let's get your coaching center configured.
+              Enter your institute details to get started.
             </p>
           </div>
 
@@ -96,7 +96,7 @@ export default function OnboardingPage() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[12px] font-medium text-[#34373e]">Institute Name</FormLabel>
+                      <FormLabel className="text-[12px] font-medium text-[#34373e]">Institute name</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Building2 className="absolute left-3 top-3 h-4 w-4 text-[#8b9099]" />
@@ -113,7 +113,7 @@ export default function OnboardingPage() {
                   name="phoneNo"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[12px] font-medium text-[#34373e]">Contact Number</FormLabel>
+                      <FormLabel className="text-[12px] font-medium text-[#34373e]">Contact number</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Phone className="absolute left-3 top-3 h-4 w-4 text-[#8b9099]" />
@@ -130,7 +130,7 @@ export default function OnboardingPage() {
                   name="location"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[12px] font-medium text-[#34373e]">City / Location</FormLabel>
+                      <FormLabel className="text-[12px] font-medium text-[#34373e]">City or location</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <MapPin className="absolute left-3 top-3 h-4 w-4 text-[#8b9099]" />
@@ -148,7 +148,7 @@ export default function OnboardingPage() {
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                       <>
-                        Complete Setup
+                        Complete setup
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </>
                     )}

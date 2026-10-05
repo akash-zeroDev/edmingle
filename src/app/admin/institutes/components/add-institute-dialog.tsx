@@ -59,8 +59,8 @@ export function AddInstituteDialog() {
         })
       } else {
         toast({
-          title: "Invitation sent!",
-          description: `An invitation has been sent to ${values.email}`,
+          title: "Invitation sent",
+          description: `Sent to ${values.email}.`,
         })
         form.reset()
         setOpen(false)
@@ -81,14 +81,14 @@ export function AddInstituteDialog() {
       <DialogTrigger asChild>
         <Button className="flex-1 sm:flex-none h-[38px] px-4 text-xs font-semibold bg-primary hover:bg-primary-hover text-white shadow-sm transition-all">
           <Plus className="w-[15px] h-[15px] mr-1.5" />
-          Add Institute
+          Add institute
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Invite new institute</DialogTitle>
+          <DialogTitle>Invite institute</DialogTitle>
           <DialogDescription>
-            Enter their email address. They will receive a link to join the platform and set up their institute.
+            Send an invitation link to set up an institute account.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -115,7 +115,7 @@ export function AddInstituteDialog() {
               </Button>
               <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary-hover text-white">
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Send Invitation
+                Send invitation
               </Button>
             </div>
           </form>

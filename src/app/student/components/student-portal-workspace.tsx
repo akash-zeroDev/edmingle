@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import {
   GraduationCap,
   BookOpen,
@@ -18,12 +18,23 @@ import {
   ChevronRight,
   Download,
   Info,
+  ShieldCheck,
+  Search,
+  X,
+  Layers3,
+  Globe,
+  Settings,
 } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import { mockModules, mockTimetable, mockAnnouncements } from "@/data/mock-batch-workspace"
+import { mockModules, mockTimetable } from "@/data/mock-batch-workspace"
+import type { BatchAnnouncementItem } from "@/actions/announcement"
+import { PhoneChangeModal } from "@/components/settings/phone-change-modal"
+import { FeeReceiptModal, type ReceiptData } from "@/app/institute/fees/components/fee-receipt-modal"
 
 interface StudentPortalWorkspaceProps {
   student: any
@@ -31,6 +42,7 @@ interface StudentPortalWorkspaceProps {
   batches: any[]
   fees: any[]
   attendance: any[]
+  announcements?: BatchAnnouncementItem[]
   isPreview?: boolean
 }
 
@@ -40,10 +52,24 @@ export function StudentPortalWorkspace({
   batches = [],
   fees = [],
   attendance = [],
+  announcements = [],
   isPreview = false,
 }: StudentPortalWorkspaceProps) {
   const [activeTab, setActiveTab] = useState("batches")
   const { toast } = useToast()
+
+  // Phone state & OTP verification modal
+  const [currentPhone, setCurrentPhone] = useState(student.phoneNo || "+91 98102 45631")
+  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false)
+
+  // Receipt modal state
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false)
+  const [activeReceipt, setActiveReceipt] = useState<ReceiptData | null>(null)
+
+  // Notification toggles
+  const [notifyLectures, setNotifyLectures] = useState(true)
+  const [notifyAttendance, setNotifyAttendance] = useState(true)
+  const [notifyFees, setNotifyFees] = useState(true)
 
   // Fallback demo batches if none enrolled yet
   const displayBatches =
@@ -65,6 +91,91 @@ export function StudentPortalWorkspace({
             teacher: { name: "Prof. Rajesh Kumar" },
           },
         ]
+
+  const [selectedBatchId, setSelectedBatchId] = useState<string>("ALL")
+  const [noticeFilter, setNoticeFilter] = useState<"ALL" | "ADMIN" | "FACULTY">("ALL")
+  const [noticeSearch, setNoticeSearch] = useState("")
+
+  const adminNoticesCount = useMemo(
+    () => announcements.filter((a) => a.authorRole === "ADMIN").length,
+    [announcements]
+  )
+  const facultyNoticesCount = useMemo(
+    () => announcements.filter((a) => a.authorRole === "FACULTY").length,
+    [announcements]
+  )
+
+  const batchCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const a of announcements) {
+      const key = a.batchId ?? "GLOBAL"
+      counts[key] = (counts[key] || 0) + 1
+    }
+    return counts
+  }, [announcements])
+
+  const filteredNotices = useMemo(() => {
+    return announcements.filter((notice) => {
+      // Filter by enrolled batch or global
+      if (selectedBatchId === "GLOBAL") {
+        if (notice.batchId !== null) return false
+      } else if (selectedBatchId !== "ALL") {
+        if (notice.batchId !== selectedBatchId) return false
+      }
+
+      // Filter by sender role
+      if (noticeFilter === "ADMIN" && notice.authorRole !== "ADMIN") return false
+      if (noticeFilter === "FACULTY" && notice.authorRole !== "FACULTY") return false
+
+      // Search keyword
+      if (noticeSearch.trim()) {
+        const q = noticeSearch.toLowerCase()
+        const matchContent = notice.content.toLowerCase().includes(q)
+        const matchAuthor = notice.authorName.toLowerCase().includes(q)
+        const matchBatch = notice.batchName?.toLowerCase().includes(q)
+        if (!matchContent && !matchAuthor && !matchBatch) return false
+      }
+      return true
+    })
+  }, [announcements, selectedBatchId, noticeFilter, noticeSearch])
+
+  // Extract all payment receipts
+  const receiptList = useMemo<ReceiptData[]>(() => {
+    const list: ReceiptData[] = []
+    fees.forEach((f) => {
+      f.payments?.forEach((p: any) => {
+        list.push({
+          receiptNo: p.receiptNo,
+          studentName: student.name,
+          batchName: displayBatches[0]
+            ? `${displayBatches[0].className} - ${displayBatches[0].subject}`
+            : "Coaching Batch",
+          amount: p.amount,
+          paymentMode: p.paymentMode || "UPI",
+          remainingBalance: Math.max(0, (f.amountTotal || 0) - (f.amountPaid || 0)),
+          paidAt: p.paidAt,
+          cashierName: p.receivedBy || "Accounts Desk",
+          instituteName: institute?.name || "Classly Coaching Institute",
+        })
+      })
+    })
+    if (list.length === 0) {
+      list.push({
+        receiptNo: "REC-2026-784",
+        studentName: student.name || "Aarav Sharma",
+        batchName: displayBatches[0]
+          ? `${displayBatches[0].className} - ${displayBatches[0].subject}`
+          : "Class 12 - Physics (Advanced)",
+        amount: 25000,
+        paymentMode: "UPI",
+        remainingBalance: 0,
+        paidAt: new Date().toISOString(),
+        cashierName: "Accounts Desk",
+        instituteName: institute?.name || "Classly Coaching Institute",
+      })
+    }
+    return list
+  }, [fees, student.name, displayBatches, institute?.name])
 
   // Fee calculation
   const totalFeeDue = fees.reduce(
@@ -89,11 +200,11 @@ export function StudentPortalWorkspace({
           <div className="flex items-center gap-2.5">
             <Info className="size-4 shrink-0 text-amber-700" />
             <span>
-              <strong>Admin Preview Mode</strong>: You are viewing the Student Portal as an administrator. Enrolled student data is loaded in sample preview mode.
+              <strong>Preview mode</strong>: Viewing sample student data.
             </span>
           </div>
           <span className="font-semibold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-md">
-            Preview Active
+            Preview
           </span>
         </div>
       )}
@@ -108,10 +219,10 @@ export function StudentPortalWorkspace({
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl font-bold text-[#15171b]">
-                  {student.name || "Enrolled Student"}
+                  {student.name || "Student"}
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Active Enrollment
+                  Active
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
                   Roll: {rollNumber}
@@ -120,7 +231,7 @@ export function StudentPortalWorkspace({
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs text-[#5e6b63]">
                 <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
                   <GraduationCap className="size-3.5 text-primary" />
-                  {institute?.name || "Edmingle Coaching Institute"}
+                  {institute?.name || "Classly"}
                 </span>
                 {student.phoneNo && (
                   <span className="inline-flex items-center gap-1">
@@ -145,16 +256,16 @@ export function StudentPortalWorkspace({
               onClick={() => {
                 setActiveTab("fees")
                 toast({
-                  title: "Fee Portal",
+                  title: "Fees",
                   description: isFeeClear
-                    ? "All your tuition installments are completely up to date!"
-                    : "Outstanding dues found. Review the fee ledger below.",
+                    ? "All fee installments are paid."
+                    : "Outstanding dues found.",
                 })
               }}
               className="rounded-xl h-10 px-4 text-xs font-semibold border-[#e7e9ed] hover:bg-[#fafbfc] cursor-pointer"
             >
               <IndianRupee className="size-3.5 mr-1.5 text-primary" />
-              {isFeeClear ? "Fee Receipts" : "View Dues"}
+              {isFeeClear ? "Receipts" : "Fees"}
             </Button>
             <Button
               size="sm"
@@ -164,7 +275,7 @@ export function StudentPortalWorkspace({
               className="rounded-xl h-10 px-4 text-xs font-semibold bg-primary hover:bg-primary-hover text-white shadow-xs cursor-pointer"
             >
               <Calendar className="size-3.5 mr-1.5" />
-              Weekly Schedule
+              Schedule
             </Button>
           </div>
         </div>
@@ -175,21 +286,21 @@ export function StudentPortalWorkspace({
         {/* Metric 1: Enrolled Batches */}
         <div className="rounded-2xl border border-[#e7e9ed] bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between text-xs text-[#5e6b63] mb-2 font-medium">
-            <span>Enrolled Batches</span>
+            <span>Batches</span>
             <BookOpen className="size-4 text-primary" />
           </div>
           <div className="text-2xl font-bold text-[#15171b]">
             {displayBatches.length}
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">
-            Active courses this academic term
+            Assigned batches
           </p>
         </div>
 
         {/* Metric 2: Attendance Rate */}
         <div className="rounded-2xl border border-[#e7e9ed] bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between text-xs text-[#5e6b63] mb-2 font-medium">
-            <span>Attendance Rate</span>
+            <span>Attendance rate</span>
             <CheckCircle2 className="size-4 text-emerald-600" />
           </div>
           <div className="text-2xl font-bold text-[#15171b]">
@@ -203,7 +314,7 @@ export function StudentPortalWorkspace({
         {/* Metric 3: Syllabus Progress */}
         <div className="rounded-2xl border border-[#e7e9ed] bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between text-xs text-[#5e6b63] mb-2 font-medium">
-            <span>Curriculum Progress</span>
+            <span>Syllabus completed</span>
             <GraduationCap className="size-4 text-primary" />
           </div>
           <div className="text-2xl font-bold text-[#15171b]">
@@ -217,14 +328,14 @@ export function StudentPortalWorkspace({
         {/* Metric 4: Fee Realization */}
         <div className="rounded-2xl border border-[#e7e9ed] bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between text-xs text-[#5e6b63] mb-2 font-medium">
-            <span>Tuition Dues</span>
+            <span>Fees pending</span>
             <IndianRupee className="size-4 text-primary" />
           </div>
           <div className="text-2xl font-bold text-[#15171b]">
-            {isFeeClear ? "All Cleared" : `₹${totalFeeDue.toLocaleString("en-IN")}`}
+            {isFeeClear ? "Paid" : `₹${totalFeeDue.toLocaleString("en-IN")}`}
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">
-            {isFeeClear ? "No pending payments" : "Quarterly installment due"}
+            {isFeeClear ? "No pending payments" : "Payment due"}
           </p>
         </div>
       </div>
@@ -236,23 +347,27 @@ export function StudentPortalWorkspace({
             <TabsList className="h-12 gap-6 bg-transparent p-0">
               <TabsTrigger value="batches" className="gap-2 pb-3.5 pt-3">
                 <BookOpen className="size-4" />
-                <span>My Batches</span>
+                <span>Batches</span>
               </TabsTrigger>
               <TabsTrigger value="timetable" className="gap-2 pb-3.5 pt-3">
                 <Calendar className="size-4" />
-                <span>Weekly Schedule</span>
+                <span>Timetable</span>
               </TabsTrigger>
               <TabsTrigger value="curriculum" className="gap-2 pb-3.5 pt-3">
                 <GraduationCap className="size-4" />
-                <span>Curriculum Progress</span>
+                <span>Syllabus</span>
               </TabsTrigger>
               <TabsTrigger value="fees" className="gap-2 pb-3.5 pt-3">
                 <IndianRupee className="size-4" />
-                <span>Fee Ledger & Receipts</span>
+                <span>Fees</span>
               </TabsTrigger>
               <TabsTrigger value="announcements" className="gap-2 pb-3.5 pt-3">
                 <Megaphone className="size-4" />
-                <span>Notices & Broadcasts</span>
+                <span>Announcements</span>
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="gap-2 pb-3.5 pt-3">
+                <Settings className="size-4" />
+                <span>Settings & Profile</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -262,11 +377,8 @@ export function StudentPortalWorkspace({
             <div className="flex items-center justify-between mb-2">
               <div>
                 <h3 className="text-sm font-bold text-[#15171b]">
-                  Enrolled Academic Batches
+                  Batches
                 </h3>
-                <p className="text-xs text-[#5e6b63]">
-                  Your active courses, assigned teachers, and lecture timings.
-                </p>
               </div>
             </div>
 
@@ -278,7 +390,7 @@ export function StudentPortalWorkspace({
                   onClick={() => {
                     toast({
                       title: `${batch.className} - ${batch.subject}`,
-                      description: `Timing: ${batch.timing || "Flexible"} | Teacher: ${batch.teacher?.name || "Faculty"}`,
+                      description: `Timing: ${batch.timing || "Flexible"} | Teacher: ${batch.teacher?.name || "Unassigned"}`,
                     })
                   }}
                 >
@@ -297,7 +409,7 @@ export function StudentPortalWorkspace({
                     </h4>
                     <div className="flex items-center gap-1.5 text-xs text-[#5e6b63] mt-1">
                       <Clock className="size-3.5 text-muted-foreground" />
-                      <span>{batch.timing || "Regular schedule"}</span>
+                      <span>{batch.timing || "Schedule"}</span>
                     </div>
                   </div>
 
@@ -307,11 +419,11 @@ export function StudentPortalWorkspace({
                         {(batch.teacher?.name || "T").substring(0, 2).toUpperCase()}
                       </div>
                       <span className="font-medium text-[#1a201c]">
-                        {batch.teacher?.name || "Assigned Teacher"}
+                        {batch.teacher?.name || "Teacher"}
                       </span>
                     </div>
                     <span className="text-[11px] text-primary font-semibold group-hover:underline">
-                      View Details →
+                      View details
                     </span>
                   </div>
                 </div>
@@ -324,11 +436,8 @@ export function StudentPortalWorkspace({
             <div className="flex items-center justify-between mb-2">
               <div>
                 <h3 className="text-sm font-bold text-[#15171b]">
-                  Weekly Lecture Grid (Monday – Saturday)
+                  Timetable
                 </h3>
-                <p className="text-xs text-[#5e6b63]">
-                  Scheduled lecture timings, room locations, and discussion topics.
-                </p>
               </div>
             </div>
 
@@ -369,11 +478,8 @@ export function StudentPortalWorkspace({
             <div className="flex items-center justify-between mb-2">
               <div>
                 <h3 className="text-sm font-bold text-[#15171b]">
-                  Syllabus Milestone Tracking
+                  Syllabus
                 </h3>
-                <p className="text-xs text-[#5e6b63]">
-                  Track completed chapters, ongoing lectures, and upcoming milestones.
-                </p>
               </div>
             </div>
 
@@ -394,7 +500,7 @@ export function StudentPortalWorkspace({
                       {module.name}
                     </span>
                     <span className="text-xs font-semibold text-primary">
-                      {module.progress}% Completed
+                      {module.progress}%
                     </span>
                   </div>
                   <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -406,7 +512,7 @@ export function StudentPortalWorkspace({
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                     <span>{module.topics}</span>
                     <span>
-                      {module.progress === 100 ? "Finished" : "In Progress"}
+                      {module.progress === 100 ? "Completed" : "In progress"}
                     </span>
                   </div>
                 </div>
@@ -419,11 +525,8 @@ export function StudentPortalWorkspace({
             <div className="flex items-center justify-between mb-2">
               <div>
                 <h3 className="text-sm font-bold text-[#15171b]">
-                  Fee Schedule & Payment Receipts
+                  Fees
                 </h3>
-                <p className="text-xs text-[#5e6b63]">
-                  Track installments, clear outstanding dues, and download verified receipts.
-                </p>
               </div>
             </div>
 
@@ -435,10 +538,10 @@ export function StudentPortalWorkspace({
                   </div>
                   <div>
                     <div className="text-xs font-bold text-emerald-950">
-                      Quarter 1 & 2 Tuition Fee
+                      Tuition fee (Quarter 1 & 2)
                     </div>
                     <div className="text-[11px] text-emerald-700">
-                      Paid on 15 Jul 2026 · Verified by Institute Accounts
+                      Paid on 15 Jul 2026
                     </div>
                   </div>
                 </div>
@@ -447,14 +550,14 @@ export function StudentPortalWorkspace({
                   size="sm"
                   onClick={() => {
                     toast({
-                      title: "Receipt Downloaded",
-                      description: "Official receipt #REC-2026-784 saved as PDF.",
+                      title: "Receipt downloaded",
+                      description: "Receipt REC-2026-784 saved.",
                     })
                   }}
                   className="rounded-xl h-8 px-3 text-xs font-semibold bg-white border-emerald-300 text-emerald-800 hover:bg-emerald-50 cursor-pointer"
                 >
                   <Download className="size-3 mr-1" />
-                  Download Receipt
+                  Download receipt
                 </Button>
               </div>
 
@@ -465,10 +568,10 @@ export function StudentPortalWorkspace({
                   </div>
                   <div>
                     <div className="text-xs font-bold text-blue-950">
-                      Quarter 3 Academic Installment
+                      Tuition fee (Quarter 3)
                     </div>
                     <div className="text-[11px] text-blue-700">
-                      Due Date: 15 Oct 2026 · Amount: ₹40,000
+                      Due 15 Oct 2026
                     </div>
                   </div>
                 </div>
@@ -476,64 +579,538 @@ export function StudentPortalWorkspace({
                   size="sm"
                   onClick={() => {
                     toast({
-                      title: "Online Fee Gateway",
-                      description: "Redirecting to Razorpay / UPI secure payment portal...",
+                      title: "Payment gateway",
+                      description: "Opening payment gateway...",
                     })
                   }}
                   className="rounded-xl h-8 px-3 text-xs font-semibold bg-primary hover:bg-primary-hover text-white cursor-pointer"
                 >
-                  Pay ₹40,000 Now
+                  Pay ₹40,000
                 </Button>
               </div>
             </div>
           </TabsContent>
 
           {/* TAB 5: ANNOUNCEMENTS */}
-          <TabsContent value="announcements" className="p-6 space-y-4">
-            <div className="flex items-center justify-between mb-2">
+          <TabsContent value="announcements" className="p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
               <div>
                 <h3 className="text-sm font-bold text-[#15171b]">
-                  Institute Notices & Broadcasts
+                  Announcements
                 </h3>
-                <p className="text-xs text-[#5e6b63]">
-                  Important announcements broadcasted to your enrolled batch.
-                </p>
+              </div>
+
+              {/* Segmented Source Tabs */}
+              <div className="flex items-center gap-1 p-0.5 rounded-xl bg-muted border border-border self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setNoticeFilter("ALL")}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer",
+                    noticeFilter === "ALL"
+                      ? "bg-card text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  All ({announcements.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNoticeFilter("ADMIN")}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer",
+                    noticeFilter === "ADMIN"
+                      ? "bg-purple-50 text-purple-800 shadow-xs ring-1 ring-purple-200"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <ShieldCheck className="size-3 text-purple-600" />
+                  Admin ({adminNoticesCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNoticeFilter("FACULTY")}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer",
+                    noticeFilter === "FACULTY"
+                      ? "bg-blue-50 text-blue-800 shadow-xs ring-1 ring-blue-200"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <GraduationCap className="size-3 text-blue-600" />
+                  Teachers ({facultyNoticesCount})
+                </button>
               </div>
             </div>
 
-            <div className="space-y-3">
-              {mockAnnouncements.map((notice) => (
-                <div
-                  key={notice.id}
-                  className="p-4 rounded-xl border border-[#e7e9ed] bg-white hover:border-primary/30 transition-all space-y-2 cursor-pointer group"
-                  onClick={() => {
-                    toast({
-                      title: notice.title,
-                      description: notice.body,
-                    })
-                  }}
+            {/* Filter by Enrolled Batches Rail */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Layers3 className="size-3 text-primary" /> Batches
+                </span>
+                {selectedBatchId !== "ALL" && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBatchId("ALL")}
+                    className="text-[11px] text-primary hover:underline font-semibold cursor-pointer"
+                  >
+                    All batches
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedBatchId("ALL")}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
+                    selectedBatchId === "ALL"
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                      : "bg-white text-muted-foreground border-border hover:border-slate-300 hover:text-foreground"
+                  )}
                 >
-                  <div className="flex items-center justify-between">
-                    <h5 className="text-xs font-bold text-[#15171b] group-hover:text-primary transition-colors">
-                      {notice.title}
-                    </h5>
-                    <span className="text-[10px] font-semibold text-primary bg-primary-light px-2 py-0.5 rounded">
-                      Notice
+                  <Layers3 className="size-3.5" />
+                  All batches
+                  <span
+                    className={cn(
+                      "text-[10px] px-1.5 py-0.2 rounded-full font-bold",
+                      selectedBatchId === "ALL" ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {announcements.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedBatchId("GLOBAL")}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
+                    selectedBatchId === "GLOBAL"
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                      : "bg-white text-muted-foreground border-border hover:border-slate-300 hover:text-foreground"
+                  )}
+                >
+                  <Globe className="size-3.5" />
+                  All batches
+                  <span
+                    className={cn(
+                      "text-[10px] px-1.5 py-0.2 rounded-full font-bold",
+                      selectedBatchId === "GLOBAL" ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {batchCounts["GLOBAL"] || 0}
+                  </span>
+                </button>
+
+                {displayBatches.map((batch: any) => {
+                  const count = batchCounts[batch.id] || 0
+                  const label = `${batch.className} ${batch.batchName ? `(${batch.batchName})` : batch.subject ? `(${batch.subject})` : ""}`.trim()
+                  const isSelected = selectedBatchId === batch.id
+                  return (
+                    <button
+                      key={batch.id}
+                      type="button"
+                      onClick={() => setSelectedBatchId(batch.id)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
+                        isSelected
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-white text-muted-foreground border-border hover:border-slate-300 hover:text-foreground"
+                      )}
+                    >
+                      <BookOpen className="size-3.5" />
+                      <span className="truncate max-w-[200px]">{label}</span>
+                      <span
+                        className={cn(
+                          "text-[10px] px-1.5 py-0.2 rounded-full font-bold",
+                          isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Search Input Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 size-3.5 text-muted-foreground" />
+              <Input
+                value={noticeSearch}
+                onChange={(e) => setNoticeSearch(e.target.value)}
+                placeholder="Search announcements..."
+                className="h-9 pl-9 pr-8 text-xs rounded-xl border-border bg-white"
+              />
+              {noticeSearch && (
+                <button
+                  type="button"
+                  onClick={() => setNoticeSearch("")}
+                  className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Notices List */}
+            <div className="space-y-3">
+              {filteredNotices.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[#e7e9ed] bg-white p-10 text-center">
+                  <div className="size-10 rounded-full bg-primary-light text-primary flex items-center justify-center mx-auto mb-2">
+                    <Megaphone className="size-5" />
+                  </div>
+                  <h4 className="text-sm font-semibold text-[#15171b]">
+                    {announcements.length === 0
+                      ? "No announcements yet"
+                      : "No announcements match your search"}
+                  </h4>
+                  <p className="text-xs text-[#5e6b63] mt-1 max-w-sm mx-auto">
+                    {announcements.length === 0
+                      ? "Announcements from your teachers and institute will appear here."
+                      : "Try resetting your search query or selecting a different batch."}
+                  </p>
+                  {(selectedBatchId !== "ALL" || noticeFilter !== "ALL" || noticeSearch) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedBatchId("ALL")
+                        setNoticeFilter("ALL")
+                        setNoticeSearch("")
+                      }}
+                      className="mt-3 h-8 text-xs rounded-xl"
+                    >
+                      Reset filters
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                filteredNotices.map((notice) => (
+                  <div
+                    key={notice.id}
+                    className="p-5 rounded-2xl border border-[#e7e9ed] bg-white hover:border-primary/40 transition-all space-y-3 shadow-2xs"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {notice.authorRole === "ADMIN" ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-800 border border-purple-200 uppercase tracking-wider">
+                            <ShieldCheck className="size-3 text-purple-600" />
+                            Admin, {notice.authorName}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 uppercase tracking-wider">
+                            <GraduationCap className="size-3 text-blue-600" />
+                            Teacher, {notice.authorName}
+                          </span>
+                        )}
+
+                        <span
+                          className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                            notice.priority === "URGENT"
+                              ? "bg-rose-100 text-rose-800 border border-rose-200"
+                              : notice.priority === "HIGH"
+                              ? "bg-amber-100 text-amber-800 border border-amber-200"
+                              : "bg-blue-100 text-blue-800 border border-blue-200"
+                          )}
+                        >
+                          {notice.priority}
+                        </span>
+
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                          {notice.batchName || "All batches"}
+                        </span>
+                      </div>
+
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {new Date(notice.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+
+                    <div className="pt-0.5">
+                      <p className="text-[13px] text-[#15171b] leading-relaxed whitespace-pre-line font-normal">
+                        {notice.content}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          {/* TAB 6: SETTINGS & PROFILE */}
+          <TabsContent value="settings" className="p-6 space-y-6">
+            <div>
+              <h3 className="text-base font-bold text-[#15171b]">
+                Student Profile & Account Settings
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Manage your registered contact number, review enrolled guardian details, and access official fee receipts.
+              </p>
+            </div>
+
+            {/* SECTION 1: REGISTERED MOBILE NUMBER & OTP VERIFICATION */}
+            <div className="rounded-2xl border border-border bg-[#fafbfc] p-5 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                  <Phone className="size-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-[#15171b]">
+                    Registered Mobile Number
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Direct SMS destination for examination schedules, class cancellations, and fee receipts
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl border border-border bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-[#15171b] font-mono">
+                      {currentPhone}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                      <CheckCircle2 className="size-3" />
+                      Verified
                     </span>
                   </div>
-                  <p className="text-xs text-[#5e6b63] leading-relaxed">
-                    {notice.body}
+                  <p className="text-[11px] text-muted-foreground">
+                    Maximum 3 phone updates permitted per academic year with OTP verification.
                   </p>
-                  <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-100 flex items-center justify-between">
-                    <span>{notice.meta}</span>
-                    <span className="text-primary font-medium">Click to read →</span>
-                  </div>
                 </div>
-              ))}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPhoneModalOpen(true)}
+                  className="rounded-xl h-9 text-xs font-semibold border-border hover:bg-muted/40 cursor-pointer shrink-0"
+                >
+                  <ShieldCheck className="size-3.5 mr-1.5 text-primary" />
+                  Change mobile number
+                </Button>
+              </div>
+            </div>
+
+            {/* SECTION 2: ACADEMIC & GUARDIAN PROFILE */}
+            <div className="rounded-2xl border border-border bg-[#fafbfc] p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-blue-50 text-primary flex items-center justify-center">
+                  <User className="size-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-[#15171b]">
+                    Enrollment & Guardian Information
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Official records registered with {institute?.name || "your coaching institute"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-1">
+                <div className="p-3.5 rounded-xl border border-border bg-white space-y-1">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase">
+                    Student Full Name
+                  </span>
+                  <p className="text-xs font-bold text-[#15171b]">
+                    {student.name || "Aarav Sharma"}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-border bg-white space-y-1">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase">
+                    Student Enrollment ID
+                  </span>
+                  <p className="text-xs font-mono font-bold text-[#15171b]">
+                    {student.id ? student.id.slice(0, 16) : "STD-2026-0941"}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-border bg-white space-y-1">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase">
+                    Registered Email
+                  </span>
+                  <p className="text-xs font-mono text-[#15171b] truncate">
+                    {student.email || "student@example.com"}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-border bg-white space-y-1">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase">
+                    Primary Guardian / Parent
+                  </span>
+                  <p className="text-xs font-bold text-[#15171b]">
+                    Rajesh Sharma (Father)
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-border bg-white space-y-1">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase">
+                    Parent Contact Number
+                  </span>
+                  <p className="text-xs font-mono text-[#15171b]">
+                    {student.parentPhone || "+91 98102 99881"}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-border bg-white space-y-1">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase">
+                    Residential Address
+                  </span>
+                  <p className="text-xs text-[#15171b] truncate">
+                    {student.address || "Connaught Place, New Delhi"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 3: OFFICIAL RECEIPTS & INVOICES ARCHIVE */}
+            <div className="rounded-2xl border border-border bg-[#fafbfc] p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                  <FileText className="size-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-[#15171b]">
+                    Fee Receipts & Document Archive
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Official tax and payment receipts generated for coaching tuition installments
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2.5 pt-1">
+                {receiptList.map((r, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3.5 rounded-xl border border-border bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-primary/40 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="size-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="size-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold font-mono text-[#15171b]">
+                            {r.receiptNo}
+                          </span>
+                          <span className="px-2 py-0.2 rounded text-[10px] font-bold bg-blue-50 text-primary">
+                            {r.paymentMode}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Paid: ₹{r.amount.toLocaleString("en-IN")} · {r.batchName}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setActiveReceipt(r)
+                        setReceiptModalOpen(true)
+                      }}
+                      className="rounded-xl h-8 px-3 text-xs font-semibold border-border hover:bg-muted/40 cursor-pointer shrink-0"
+                    >
+                      <Download className="size-3.5 mr-1 text-primary" />
+                      View & print receipt
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* SECTION 4: NOTIFICATION PREFERENCES */}
+            <div className="rounded-2xl border border-border bg-[#fafbfc] p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
+                  <Megaphone className="size-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-[#15171b]">
+                    Notification Dispatch Channels
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Preferences for urgent class notices and automated communication
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-1">
+                <div className="p-3 rounded-xl border border-border bg-white flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-semibold text-[#15171b]">
+                      Lecture Reschedule & Doubt Session Alerts
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      Receive immediate SMS whenever batch timings are adjusted by faculty.
+                    </p>
+                  </div>
+                  <Switch checked={notifyLectures} onCheckedChange={setNotifyLectures} />
+                </div>
+
+                <div className="p-3 rounded-xl border border-border bg-white flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-semibold text-[#15171b]">
+                      Roll-Call Absentee Alert to Parent
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      Dispatches daily alert to parent phone number if absent during roll call.
+                    </p>
+                  </div>
+                  <Switch checked={notifyAttendance} onCheckedChange={setNotifyAttendance} />
+                </div>
+
+                <div className="p-3 rounded-xl border border-border bg-white flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-semibold text-[#15171b]">
+                      Installment Due Date Reminders
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      Sends polite reminder notices 3 days prior to fee schedule due dates.
+                    </p>
+                  </div>
+                  <Switch checked={notifyFees} onCheckedChange={setNotifyFees} />
+                </div>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Phone Change OTP Verification Modal */}
+      <PhoneChangeModal
+        open={isPhoneModalOpen}
+        onOpenChange={setIsPhoneModalOpen}
+        currentPhone={currentPhone}
+        role="student"
+        onSuccess={(newPhone) => {
+          setCurrentPhone(newPhone)
+        }}
+      />
+
+      {/* Fee Receipt View & Print Modal */}
+      <FeeReceiptModal
+        open={receiptModalOpen}
+        onOpenChange={setReceiptModalOpen}
+        receipt={activeReceipt}
+        instituteName={institute?.name || "Classly Coaching Institute"}
+      />
     </div>
   )
 }
+

@@ -1,10 +1,11 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, User, Phone, MapPin, IndianRupee, BookOpen, Loader2 } from "lucide-react"
+import { Plus, User, Mail, Phone, MapPin, IndianRupee, BookOpen, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -29,6 +30,7 @@ import { createTeacher } from "@/actions/teacher"
 
 const formSchema = z.object({
   name: z.string().min(2, "Teacher name must be at least 2 characters."),
+  email: z.string().email("Please enter a valid email address."),
   phoneNo: z.string().optional(),
   address: z.string().optional(),
   salary: z.string().optional(),
@@ -36,6 +38,7 @@ const formSchema = z.object({
 })
 
 export function AddTeacherDialog() {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
@@ -44,6 +47,7 @@ export function AddTeacherDialog() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
+      email: "",
       phoneNo: "",
       address: "",
       salary: "",
@@ -56,6 +60,7 @@ export function AddTeacherDialog() {
     try {
       const formData = new FormData()
       formData.append("name", values.name)
+      formData.append("email", values.email)
       if (values.phoneNo) formData.append("phoneNo", values.phoneNo)
       if (values.address) formData.append("address", values.address)
       if (values.salary) formData.append("salary", values.salary)
@@ -71,11 +76,12 @@ export function AddTeacherDialog() {
         })
       } else {
         toast({
-          title: "Teacher Added",
-          description: `${values.name} has been registered to your institute.`,
+          title: "Teacher added",
+          description: `An invite link has been sent to ${values.email}.`,
         })
         form.reset()
         setOpen(false)
+        router.refresh()
       }
     } catch {
       toast({
@@ -101,9 +107,9 @@ export function AddTeacherDialog() {
           <div className="w-10 h-10 rounded-xl bg-primary-light text-primary flex items-center justify-center mb-3">
             <User className="w-5 h-5" />
           </div>
-          <DialogTitle className="text-lg font-bold text-[#1a201c]">Add New Faculty Member</DialogTitle>
+          <DialogTitle className="text-lg font-bold text-[#1a201c]">Add teacher</DialogTitle>
           <DialogDescription className="text-xs text-[#5e6b63]">
-            Register a new teacher to your coaching institute and assign subjects.
+            Add a teacher to your institute and send an invite to their email.
           </DialogDescription>
         </DialogHeader>
 
@@ -126,13 +132,41 @@ export function AddTeacherDialog() {
               )}
             />
 
+            {/* Email Address with Invitation Helper Note */}
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs font-semibold text-[#1a201c]">
+                    Email address *
+                  </FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-2.5 h-4 w-4 text-[#8b9a90]" />
+                      <Input
+                        type="email"
+                        placeholder="rajesh.verma@example.com"
+                        className="pl-9 h-10 border-[#e3e8e5] text-xs focus-visible:ring-primary focus-visible:border-primary"
+                        {...field}
+                      />
+                    </div>
+                  </FormControl>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    An invite link will be sent to this email for portal access.
+                  </p>
+                  <FormMessage className="text-[11px]" />
+                </FormItem>
+              )}
+            />
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField
                 control={form.control}
                 name="phoneNo"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-xs font-semibold text-[#1a201c]">Phone Number</FormLabel>
+                    <FormLabel className="text-xs font-semibold text-[#1a201c]">Phone</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Phone className="absolute left-3 top-2.5 h-4 w-4 text-[#8b9a90]" />
@@ -149,7 +183,7 @@ export function AddTeacherDialog() {
                 name="salary"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-xs font-semibold text-[#1a201c]">Monthly Salary (₹)</FormLabel>
+                    <FormLabel className="text-xs font-semibold text-[#1a201c]">Salary (₹)</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <IndianRupee className="absolute left-3 top-2.5 h-4 w-4 text-[#8b9a90]" />
@@ -167,7 +201,7 @@ export function AddTeacherDialog() {
               name="subjects"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-xs font-semibold text-[#1a201c]">Subjects Taught</FormLabel>
+                  <FormLabel className="text-xs font-semibold text-[#1a201c]">Subjects</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <BookOpen className="absolute left-3 top-2.5 h-4 w-4 text-[#8b9a90]" />
@@ -210,7 +244,7 @@ export function AddTeacherDialog() {
                 disabled={isSubmitting}
                 className="h-10 px-5 text-xs font-semibold bg-primary hover:bg-primary-hover text-white shadow-sm"
               >
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Teacher"}
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add teacher"}
               </Button>
             </div>
           </form>

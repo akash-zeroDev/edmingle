@@ -12,6 +12,8 @@ export default async function Home() {
 
     if (role === "student") {
       redirect("/student");
+    } else if (role === "teacher") {
+      redirect("/teacher");
     } else if (role === "institute_admin") {
       redirect("/institute");
     } else if (role === "superadmin") {
@@ -22,8 +24,8 @@ export default async function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center space-y-6">
-        <h1 className="text-4xl font-bold tracking-tight text-gray-900">Edmingle</h1>
-        <p className="text-gray-500">The modern operating system for coaching institutes.</p>
+        <h1 className="text-4xl font-bold tracking-tight text-gray-900">Classly</h1>
+        <p className="text-gray-500">Coaching institute management</p>
         
         <div className="pt-4">
           {!userId ? (
@@ -44,19 +46,23 @@ export default async function Home() {
               <div className="flex justify-center">
                 <UserButton />
               </div>
-              <p className="text-sm text-gray-600">You are securely logged in.</p>
+              <p className="text-sm text-gray-600">Signed in</p>
               
               <div className="grid gap-2 text-left pt-4">
                 <Link href="/admin" className="block p-3 rounded-lg border hover:bg-gray-50 transition">
-                  <span className="font-semibold block">Super Admin</span>
+                  <span className="font-semibold block">Platform Admin</span>
                   <span className="text-xs text-gray-500">Platform management</span>
                 </Link>
                 <Link href="/institute" className="block p-3 rounded-lg border hover:bg-gray-50 transition">
-                  <span className="font-semibold block">Institute Admin</span>
-                  <span className="text-xs text-gray-500">Manage your coaching center</span>
+                  <span className="font-semibold block">Institute</span>
+                  <span className="text-xs text-gray-500">Institute dashboard</span>
+                </Link>
+                <Link href="/teacher" className="block p-3 rounded-lg border hover:bg-gray-50 transition">
+                  <span className="font-semibold block">Faculty Portal</span>
+                  <span className="text-xs text-gray-500">Attendance, batches & payroll</span>
                 </Link>
                 <Link href="/student" className="block p-3 rounded-lg border hover:bg-gray-50 transition">
-                  <span className="font-semibold block">Student Portal</span>
+                  <span className="font-semibold block">Student</span>
                   <span className="text-xs text-gray-500">View schedules & fees</span>
                 </Link>
               </div>

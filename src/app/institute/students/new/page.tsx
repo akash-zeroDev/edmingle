@@ -1,21 +1,14 @@
 import prisma from "@/lib/prisma"
-import { currentUser } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
 import { EnrollStudentForm } from "./components/enroll-student-form"
 import { ChevronLeft } from "lucide-react"
 import Link from "next/link"
+import { getAuthenticatedInstitute } from "@/lib/current-institute"
 
 export default async function EnrollStudentPage() {
-  const user = await currentUser();
-  const email = user?.emailAddresses[0]?.emailAddress;
-  
-  if (!email) redirect("/");
-
-  const institute = await prisma.institute.findFirst({
-    where: { adminEmail: email }
-  });
-
-  if (!institute) redirect("/onboarding");
+  const authData = await getAuthenticatedInstitute();
+  if (!authData?.institute) redirect("/onboarding");
+  const institute = authData.institute;
 
   // Fetch all batches for this institute so we can populate the dropdowns
   const batches = await prisma.batch.findMany({

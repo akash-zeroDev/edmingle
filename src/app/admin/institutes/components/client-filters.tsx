@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useTransition, useState, useEffect, useRef } from "react"
 import { useDebounce } from "use-debounce"
 
+import { CustomSelect } from "@/components/ui/custom-select"
+
 export function ClientFilters() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -58,14 +60,13 @@ export function ClientFilters() {
         )}
       </div>
       
-      <div className="flex gap-2">
-        <select 
-          className="px-3 py-2 text-[13px] font-medium bg-white border border-[#e7e9ed] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 text-[#42454c] shadow-[0_1px_2px_rgba(16,24,40,0.03)]"
+      <div className="w-full sm:w-[170px]">
+        <CustomSelect
           value={searchParams.get("status") || "ALL"}
-          onChange={(e) => {
+          onChange={(val) => {
             const params = new URLSearchParams(searchParams.toString())
-            if (e.target.value !== "ALL") {
-              params.set("status", e.target.value)
+            if (val !== "ALL") {
+              params.set("status", val)
             } else {
               params.delete("status")
             }
@@ -73,12 +74,15 @@ export function ClientFilters() {
               router.replace(`?${params.toString()}`)
             })
           }}
-        >
-          <option value="ALL">All Payments</option>
-          <option value="PAID">Paid</option>
-          <option value="OVERDUE">Overdue</option>
-          <option value="PENDING">Pending</option>
-        </select>
+          options={[
+            { value: "ALL", label: "All Payments" },
+            { value: "PAID", label: "Paid" },
+            { value: "OVERDUE", label: "Overdue" },
+            { value: "PENDING", label: "Pending" },
+          ]}
+          placeholder="All Payments"
+          size="default"
+        />
       </div>
     </div>
   )

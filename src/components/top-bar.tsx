@@ -7,8 +7,11 @@ import {
   CircleHelp,
   Menu,
   Search,
+  X,
+  CheckCircle2,
+  ArrowRight,
 } from "lucide-react"
-import { UserButton } from "@clerk/nextjs"
+import { UserDropdown } from "@/components/user-dropdown"
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
@@ -28,6 +31,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { AppSidebar } from "@/components/app-sidebar"
+import { ReportIssueDialog } from "@/components/report-issue-dialog"
+import { ActivitiesHistoryDialog } from "@/components/activities-history-dialog"
 import { searchIndex } from "@/lib/dashboard-mock-data"
 import { cn } from "@/lib/utils"
 
@@ -91,6 +96,19 @@ function SearchDialog({
   )
 }
 
+interface QuickNotification {
+  id: string
+  title: string
+  details?: string
+  time: string
+}
+
+const INITIAL_QUICK_NOTIFICATIONS: QuickNotification[] = [
+  { id: "notif_1", title: "Fee payment received", details: "₹18,500 collected via UPI for Akash", time: "2 min ago" },
+  { id: "notif_2", title: "Attendance marked for Batch A", details: "24 Present, 1 Absent recorded", time: "18 min ago" },
+  { id: "notif_3", title: "New student enrolled", details: "Akash joined Class 12 - JEET", time: "1 hr ago" },
+]
+
 export function TopBar({
   title = "Dashboard",
   subtitle = "Overview",
@@ -100,11 +118,28 @@ export function TopBar({
   title?: string
   subtitle?: string
   instituteName?: string
-  mode?: "institute" | "admin"
+  mode?: "institute" | "admin" | "teacher"
 }) {
   const [searchOpen, setSearchOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [notifications, setNotifications] = useState<QuickNotification[]>(INITIAL_QUICK_NOTIFICATIONS)
+  const [dismissedIds, setDismissedIds] = useState<string[]>([])
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
+    try {
+      const stored = localStorage.getItem("edmingle_dismissed_activity_ids")
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed)) {
+          setDismissedIds(parsed)
+          setNotifications((prev) => prev.filter((n) => !parsed.includes(n.id)))
+        }
+      }
+    } catch {}
+
     const handler = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault()
@@ -115,6 +150,38 @@ export function TopBar({
     return () => window.removeEventListener("keydown", handler)
   }, [])
 
+  const handleDismissNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
+    setDismissedIds((prev) => {
+      const next = [...prev, id]
+      try {
+        localStorage.setItem("edmingle_dismissed_activity_ids", JSON.stringify(next))
+      } catch {}
+      return next
+    })
+  }
+
+  const handleClearAll = (activityIds?: string[]) => {
+    const notifIds = notifications.map((n) => n.id)
+    const extra = activityIds || []
+    setNotifications([])
+    setDismissedIds((prev) => {
+      const next = [...new Set([...prev, ...notifIds, ...extra])]
+      try {
+        localStorage.setItem("edmingle_dismissed_activity_ids", JSON.stringify(next))
+      } catch {}
+      return next
+    })
+  }
+
+  const handleRestoreAll = () => {
+    setNotifications(INITIAL_QUICK_NOTIFICATIONS)
+    setDismissedIds([])
+    try {
+      localStorage.removeItem("edmingle_dismissed_activity_ids")
+    } catch {}
+  }
+
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/90 md:px-6">
       {/* Mobile Navigation Sheet */}
@@ -124,7 +191,7 @@ export function TopBar({
         </SheetTrigger>
         <SheetContent side="left" className="w-64 p-0 bg-sidebar border-r border-sidebar-border">
           <SheetTitle className="sr-only">Navigation Drawer</SheetTitle>
-          <AppSidebar mode={mode} instituteName={instituteName} />
+          <AppSidebar mode={mode} instituteName={instituteName} adminName={subtitle} />
         </SheetContent>
       </Sheet>
 
@@ -144,7 +211,7 @@ export function TopBar({
           className="hidden h-8 w-56 justify-start text-muted-foreground shadow-none md:flex text-xs border-border bg-card hover:bg-muted/50"
         >
           <Search className="size-3.5 mr-2" />
-          <span className="text-[12px]">Search anything...</span>
+          <span className="text-[12px]">Search...</span>
           <kbd className="ml-auto rounded border border-border bg-muted px-1.5 py-0.5 text-[9px] font-mono">
             ⌘K
           </kbd>
@@ -160,57 +227,108 @@ export function TopBar({
         </Button>
 
         {/* Notifications Dropdown */}
-        <DropdownMenu>
+        <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative size-8" aria-label="Notifications">
+            <Button variant="ghost" size="icon" className="relative size-8 cursor-pointer" aria-label="Notifications">
               <Bell className="size-4 text-muted-foreground" />
-              <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary" />
+              {notifications.length > 0 && (
+                <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary" />
+              )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80 p-0 bg-popover border border-border">
-            <DropdownMenuLabel className="border-b border-border px-4 py-2.5 text-xs font-semibold">
-              Notifications
-            </DropdownMenuLabel>
-            <div className="p-1 space-y-0.5">
-              {[
-                ["Fee payment received", "2 min ago"],
-                ["Attendance marked for Batch A", "18 min ago"],
-                ["New student enrolled", "1 hr ago"],
-              ].map(([t, time]) => (
-                <DropdownMenuItem key={t} className="items-start px-3 py-2 text-xs">
-                  <span className="mt-1 size-1.5 shrink-0 rounded-full bg-primary mr-2" />
-                  <span>
-                    <span className="block font-medium text-foreground">{t}</span>
-                    <span className="text-[10px] text-muted-foreground">{time}</span>
-                  </span>
-                </DropdownMenuItem>
-              ))}
+          <DropdownMenuContent align="end" className="w-80 p-0 bg-popover border border-border shadow-lg rounded-xl">
+            <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+              <span className="text-xs font-semibold text-foreground">Notifications</span>
+              {notifications.length > 0 && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                  {notifications.length} new
+                </span>
+              )}
             </div>
-            <DropdownMenuSeparator />
-            <Link href="/institute/fees" className="block text-center py-2 text-[11px] font-semibold text-primary hover:bg-muted transition-colors">
-              View all activities
-            </Link>
+
+            <div className="p-1 space-y-0.5">
+              {notifications.length === 0 ? (
+                <div className="py-6 px-4 text-center space-y-1">
+                  <CheckCircle2 className="size-5 text-muted-foreground/60 mx-auto" />
+                  <p className="text-xs text-muted-foreground">No new notifications</p>
+                </div>
+              ) : (
+                notifications.map((item) => (
+                  <div
+                    key={item.id}
+                    className="group relative flex items-start justify-between p-2 rounded-lg text-xs hover:bg-muted/70 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setDropdownOpen(false)
+                      setHistoryOpen(true)
+                    }}
+                  >
+                    <div className="flex items-start gap-2.5 min-w-0 pr-1 flex-1">
+                      <span className="mt-1 size-1.5 shrink-0 rounded-full bg-primary" />
+                      <div className="min-w-0 flex-1">
+                        <span className="block font-medium text-foreground truncate">{item.title}</span>
+                        {item.details && (
+                          <span className="block text-[11px] text-muted-foreground/80 line-clamp-1 mt-0.5">{item.details}</span>
+                        )}
+                        <span className="text-[10px] text-muted-foreground mt-0.5 block">{item.time}</span>
+                      </div>
+                    </div>
+
+                    {/* Close button shown on hover */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        e.preventDefault()
+                        handleDismissNotification(item.id)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted text-muted-foreground hover:text-rose-600 cursor-pointer shrink-0"
+                      title="Dismiss notification"
+                      aria-label="Dismiss notification"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <DropdownMenuSeparator className="m-0" />
+            <button
+              type="button"
+              onClick={() => {
+                setDropdownOpen(false)
+                setHistoryOpen(true)
+              }}
+              className="w-full text-center py-2.5 text-[11px] font-semibold text-primary hover:bg-muted/60 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <span>Activity log</span>
+              <ArrowRight className="size-3" />
+            </button>
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Help button */}
-        <Button variant="ghost" size="icon" className="hidden sm:inline-flex size-8" aria-label="Help">
-          <CircleHelp className="size-4 text-muted-foreground" />
-        </Button>
+        {/* Help / Bug & Feedback Reporter */}
+        <ReportIssueDialog />
 
-        {/* User Button */}
-        <div className="ml-1">
-          <UserButton
-            appearance={{
-              elements: {
-                userButtonAvatarBox: "size-8 rounded-full ring-2 ring-primary/20",
-              },
-            }}
-          />
+        {/* User Account Dropdown */}
+        <div className="ml-1 flex items-center justify-center min-w-[32px] min-h-[32px]" suppressHydrationWarning>
+          {mounted ? (
+            <UserDropdown align="end" side="bottom" sideOffset={8} />
+          ) : (
+            <div className="size-8 rounded-full bg-slate-200 animate-pulse ring-2 ring-primary/10" />
+          )}
         </div>
       </div>
 
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
+      <ActivitiesHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        dismissedIds={dismissedIds}
+        onDismissId={handleDismissNotification}
+        onClearAll={handleClearAll}
+        onRestoreAll={handleRestoreAll}
+      />
     </header>
   )
 }

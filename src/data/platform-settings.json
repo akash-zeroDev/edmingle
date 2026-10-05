@@ -1,0 +1,20 @@
+{
+  "banking": {
+    "accountHolderName": "Classly Technologies Private Limited",
+    "accountNumber": "918020045678912",
+    "ifscCode": "HDFC0001234",
+    "bankName": "HDFC Bank",
+    "branchName": "Connaught Place, New Delhi",
+    "accountType": "CURRENT",
+    "upiVpa": "classly@okhdfcbank"
+  },
+  "razorpay": {
+    "keyId": "rzp_test_1DP5mmOlF5G5ag",
+    "keySecret": "masked_secret_key_configured",
+    "webhookSecret": "whsec_edmingle_platform_prod",
+    "environment": "TEST",
+    "isActive": true
+  },
+  "updatedAt": "2026-10-05T09:30:00.000Z",
+  "updatedBy": "Super Admin"
+}

@@ -26,14 +26,32 @@ export default async function InstitutesPage({
     where.paymentStatus = status;
   }
 
-  // Fetch institutes based on filters, now including invoices
+  // Fetch institutes based on filters with full live relations for sidecard
   const institutes = await prisma.institute.findMany({
     where,
     orderBy: { joinedAt: 'desc' },
     include: {
-      _count: { select: { students: true } },
-      invoices: { orderBy: { createdAt: 'desc' } }
-    }
+      _count: {
+        select: {
+          students: true,
+          teachers: true,
+          batches: true,
+          supportTickets: true,
+        },
+      },
+      invoices: { orderBy: { createdAt: 'desc' } },
+      batches: {
+        include: {
+          teacher: { select: { name: true } },
+          _count: { select: { students: true } },
+        },
+        take: 10,
+      },
+      supportTickets: {
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+      },
+    },
   });
 
   // WORKAROUND FOR PRISMA CLIENT CACHING

@@ -26,12 +26,17 @@ model Institute {
   students         Student[]
   batches          Batch[]
   invoices         InstituteInvoice[]
+  supportTickets   SupportTicket[]
+  teacherPayouts   TeacherPayout[]
+  attendance       Attendance[]
+  announcements    Announcement[]
 }
 
 model Teacher {
   id          String   @id @default(cuid())
   clerkUserId String   @unique
   name        String
+  email       String?
   address     String?
   phoneNo     String?
   salary      Float?
@@ -42,6 +47,8 @@ model Teacher {
   institute   Institute @relation(fields: [instituteId], references: [id])
 
   batchesTaught Batch[]
+  payouts       TeacherPayout[]
+  announcements Announcement[]
 }
 
 model Batch {
@@ -57,7 +64,9 @@ model Batch {
   teacherId   String?
   teacher     Teacher?  @relation(fields: [teacherId], references: [id])
 
-  students    BatchEnrollment[]
+  students      BatchEnrollment[]
+  attendance    Attendance[]
+  announcements Announcement[]
 }
 
 model Student {
@@ -77,6 +86,7 @@ model Student {
   batches     BatchEnrollment[]
   attendance  Attendance[]
   fees        Fee[]
+  payments    FeePayment[]
 }
 
 model BatchEnrollment {
@@ -88,11 +98,25 @@ model BatchEnrollment {
 }
 
 model Attendance {
-  id        String   @id @default(cuid())
-  date      DateTime
-  status    String
-  studentId String
-  student   Student  @relation(fields: [studentId], references: [id])
+  id          String    @id @default(cuid())
+  date        DateTime
+  status      String    @default("PRESENT") // "PRESENT", "ABSENT", "LATE", "EXCUSED"
+  remarks     String?
+  markedBy    String?   // Teacher name or "Admin"
+
+  studentId   String
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  batchId     String
+  batch       Batch     @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  instituteId String
+  institute   Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt @default(now())
+
+  @@unique([studentId, batchId, date])
+  @@index([instituteId, date])
+  @@index([batchId, date])
 }
 
 model Fee {
@@ -108,6 +132,23 @@ model Fee {
 
   studentId    String
   student      Student  @relation(fields: [studentId], references: [id])
+  payments     FeePayment[]
+}
+
+model FeePayment {
+  id             String    @id @default(cuid())
+  receiptNo      String    @unique
+  amount         Float
+  paymentMode    String    // "UPI", "CASH", "CARD", "CHEQUE", "NET_BANKING"
+  transactionRef String?   // UTR / Cheque No / Card Auth
+  notes          String?
+  paidAt         DateTime  @default(now())
+  receivedBy     String?   // Admin / Cashier name
+
+  feeId          String
+  fee            Fee       @relation(fields: [feeId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
 model InstituteInvoice {
@@ -125,3 +166,79 @@ model InstituteInvoice {
   instituteId       String
   institute         Institute @relation(fields: [instituteId], references: [id])
 }
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actor       String
+  action      String
+  details     String
+  severity    String   @default("INFO") // "INFO", "WARNING", "CRITICAL"
+  targetId    String?
+  targetType  String?
+  createdAt   DateTime @default(now())
+}
+
+model SupportTicket {
+  id            String    @id @default(cuid())
+  title         String
+  description   String
+  type          String    @default("BUG") // "BUG", "FEEDBACK", "FEATURE_REQUEST", "SUPPORT"
+  severity      String    @default("MEDIUM") // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  status        String    @default("OPEN") // "OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"
+  
+  reporterName  String
+  reporterEmail String
+  reporterPhone String?
+  reporterRole  String    // "INSTITUTE_ADMIN", "TEACHER", "STUDENT"
+  
+  instituteId   String?
+  institute     Institute? @relation(fields: [instituteId], references: [id])
+  
+  adminNotes    String?
+  resolvedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt @default(now())
+}
+
+model TeacherPayout {
+  id             String    @id @default(cuid())
+  month          Int       // 1 - 12
+  year           Int       // e.g. 2026
+  baseSalary     Float
+  bonus          Float     @default(0)
+  deductions     Float     @default(0)
+  netAmount      Float
+  status         String    @default("PAID") // "PAID", "PENDING"
+  paymentMode    String    // "NET_BANKING", "UPI", "CHEQUE", "CASH"
+  transactionRef String?   // Bank UTR, Cheque No, etc.
+  voucherNo      String    @unique
+  paidAt         DateTime  @default(now())
+  notes          String?
+
+  teacherId      String
+  teacher        Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  instituteId    String
+  institute      Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt @default(now())
+}
+
+model Announcement {
+  id          String    @id @default(cuid())
+  content     String
+  priority    String    @default("NORMAL") // "NORMAL", "HIGH", "URGENT"
+
+  instituteId String
+  institute   Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+
+  teacherId   String?
+  teacher     Teacher?  @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+
+  batchId     String?
+  batch       Batch?    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt @default(now())
+}
+

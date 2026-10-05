@@ -288,4 +288,57 @@ button[disabled],
   cursor: not-allowed !important;
 }
 
+/* =========================================================================
+   Clerk UI Overrides & Platform Theme Styling
+   ========================================================================= */
+/* Completely remove "Secured by Clerk" branding and dev mode footer */
+.cl-userButtonPopoverFooter,
+.cl-userButtonPopoverFooterPages,
+.cl-footer,
+.cl-footerAction,
+.cl-footerPages,
+.cl-internal-b3fm6y,
+.cl-internal-phfx6a,
+[data-localization-key*="footer"] {
+  display: none !important;
+}
+
+/* Ensure popover card matches platform borders, rounded corners, and shadows with buttery-smooth transition */
+.cl-userButtonPopoverRootBox,
+.cl-userButtonPopoverRoot,
+.cl-userButtonPopoverCard {
+  border-radius: 1rem !important;
+  border: 1px solid var(--border) !important;
+  background-color: var(--card) !important;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+  overflow: hidden !important;
+  transform-origin: top right !important;
+  animation: clerkDropdownEnter 180ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+  transition: opacity 160ms cubic-bezier(0.16, 1, 0.3, 1), transform 160ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes clerkDropdownEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Platform typography & interaction inside Clerk popover */
+.cl-userButtonPopoverActionButton {
+  border-radius: 0.75rem !important;
+  font-family: var(--font-inter), sans-serif !important;
+  font-size: 0.75rem !important;
+  transition: all 150ms ease-in-out !important;
+}
+
+.cl-userButtonPopoverActionButton:hover {
+  background-color: var(--muted) !important;
+}
+
+
 

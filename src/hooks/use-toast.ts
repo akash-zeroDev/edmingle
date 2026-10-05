@@ -10,7 +10,7 @@ import type {
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
 
-type ToasterToast = ToastProps & {
+type ToasterToast = Omit<ToastProps, "title"> & {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
@@ -189,5 +189,11 @@ function useToast() {
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   }
 }
+
+toast.success = (title: React.ReactNode, opts?: { description?: React.ReactNode }) =>
+  toast({ title, description: opts?.description })
+
+toast.error = (title: React.ReactNode, opts?: { description?: React.ReactNode }) =>
+  toast({ title, description: opts?.description, variant: "destructive" })
 
 export { useToast, toast }

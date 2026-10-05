@@ -24,7 +24,15 @@ The following features were discussed during the initial architecture phase but 
 
 ## Institute & Batch Management (Upcoming Versions)
 
-### 1. Curriculum & Syllabus Progress Tracker
+### 1. Centralized Gate Biometric & Hardware Punch Sync System
+*   **What it is:** Automatic attendance recording via entrance turnstiles or fingerprint/RFID machines at the coaching center gate.
+*   **What it shows & does:**
+    *   **Hardware Webhook / Cloud Sync**: Cloud ingestion endpoint (`POST /api/attendance/biometric-punch`) compatible with biometric hardware vendors (eSSL, ZKTeco, Matrix, Realtime) accepting `{ biometricId, studentRoll, timestamp, deviceId }`.
+    *   **Automated Parental Entry/Exit SMS & WhatsApp Alerts**: Instantly notifies parents with timestamped confirmation when their ward taps in (*"Aarav entered institute at 08:42 AM"*).
+    *   **Bunking & Discrepancy Detection**: Cross-references gate arrival logs against classroom lecture attendance taken by teachers, flagging students who entered the campus gate but skipped scheduled lectures.
+    *   **Offline Desktop Agent / USB Sync Tool**: Fallback desktop sync utility for institutes without continuous high-speed cloud-connected biometric controllers.
+
+### 2. Curriculum & Syllabus Progress Tracker
 *   **What it is:** Granular syllabus and chapter completion tracking per batch.
 *   **What it shows:** 
     *   Allows institute admins and faculty to define the syllabus roadmap, divided into chapters and modules per batch/subject (e.g., *Kinematics: 100% Complete*, *Thermodynamics: 40% In Progress*, *Optics: Upcoming*).

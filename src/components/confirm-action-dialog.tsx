@@ -75,12 +75,12 @@ export function ConfirmActionDialog({
           {/* Reason Input */}
           <div>
             <label className="block text-xs font-semibold text-[#1a201c] mb-1.5">
-              Reason / Comment <span className="text-[#8b9a90] font-normal">(Optional)</span>
+              Reason <span className="text-[#8b9a90] font-normal">(Optional)</span>
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Non-payment of platform fees, disciplinary action, completed curriculum..."
+              placeholder="e.g. Completed batch, requested transfer..."
               rows={3}
               className="w-full p-3 text-xs bg-white border border-[#e3e8e5] rounded-xl focus:outline-none focus:ring-1 focus:ring-primary/25 focus:border-primary transition-all resize-none text-[#1a201c] placeholder:text-[#a1b0a6]"
             />
@@ -90,7 +90,7 @@ export function ConfirmActionDialog({
           <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-[11px] text-blue-800 flex items-start gap-2">
             <Send className="w-3.5 h-3.5 shrink-0 mt-0.5 text-primary" />
             <span>
-              An official <strong>SMS and Email notice</strong> with this reason will be dispatched immediately to all associated contact numbers and emails.
+              A notification with this reason will be sent to the registered contact details.
             </span>
           </div>
         </div>

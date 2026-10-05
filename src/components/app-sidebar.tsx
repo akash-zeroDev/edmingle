@@ -2,19 +2,23 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import {
   LayoutDashboard,
   Users,
   GraduationCap,
   Layers3,
+  ClipboardCheck,
   IndianRupee,
+  Banknote,
   Settings,
   Building2,
   BarChart3,
   ShieldAlert,
+  Bug,
+  Megaphone,
 } from "lucide-react"
-import { UserButton } from "@clerk/nextjs"
+import { UserDropdown } from "@/components/user-dropdown"
 import { cn } from "@/lib/utils"
 
 export type NavItem = {
@@ -39,12 +43,15 @@ const instituteNavigation: NavGroup[] = [
       { name: "Students", url: "/institute/students", icon: Users },
       { name: "Teachers", url: "/institute/teachers", icon: GraduationCap },
       { name: "Batches", url: "/institute/batches", icon: Layers3 },
+      { name: "Announcements", url: "/institute/announcements", icon: Megaphone },
+      { name: "Attendance", url: "/institute/attendance", icon: ClipboardCheck },
     ],
   },
   {
     label: "Finance",
     items: [
       { name: "Fees & Payments", url: "/institute/fees", icon: IndianRupee },
+      { name: "Faculty Payroll", url: "/institute/payroll", icon: Banknote },
     ],
   },
   {
@@ -66,7 +73,22 @@ const adminNavigation: NavGroup[] = [
     label: "Management",
     items: [
       { name: "Analytics", url: "/admin/analytics", icon: BarChart3 },
-      { name: "Platform Settings", url: "/admin/settings", icon: Settings },
+      { name: "Bug reports & feedback", url: "/admin/support", icon: Bug },
+      { name: "Settings", url: "/admin/settings", icon: Settings },
+    ],
+  },
+]
+
+const teacherNavigation: NavGroup[] = [
+  {
+    label: "Workspace",
+    items: [
+      { name: "Overview", url: "/teacher", icon: LayoutDashboard },
+      { name: "Attendance", url: "/teacher?tab=attendance", icon: ClipboardCheck },
+      { name: "Batches", url: "/teacher?tab=batches", icon: Layers3 },
+      { name: "Announcements", url: "/teacher?tab=announcements", icon: Megaphone },
+      { name: "Payroll", url: "/teacher?tab=payroll", icon: Banknote },
+      { name: "Settings", url: "/teacher?tab=settings", icon: Settings },
     ],
   },
 ]
@@ -102,14 +124,39 @@ export function AppSidebar({
   isBlocked = false,
   onNavigate,
 }: {
-  mode?: "institute" | "admin"
+  mode?: "institute" | "admin" | "teacher"
   instituteName?: string
   adminName?: string
   isBlocked?: boolean
   onNavigate?: () => void
 }) {
   const pathname = usePathname()
-  const navigation = mode === "admin" ? adminNavigation : instituteNavigation
+  const searchParams = useSearchParams()
+  const activeTab = searchParams.get("tab") || "overview"
+
+  const navigation =
+    mode === "admin"
+      ? adminNavigation
+      : mode === "teacher"
+      ? teacherNavigation
+      : instituteNavigation
+
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const isItemSelected = (itemUrl: string) => {
+    if (mode === "teacher") {
+      if (itemUrl === "/teacher") {
+        return pathname === "/teacher" && activeTab === "overview"
+      }
+      const matchTab = itemUrl.split("tab=")[1]
+      return pathname === "/teacher" && activeTab === matchTab
+    }
+    return pathname === itemUrl
+  }
 
   return (
     <aside
@@ -121,10 +168,10 @@ export function AppSidebar({
         <ProductMark />
         <div className="flex flex-col">
           <span className="text-[16px] font-bold tracking-tight text-sidebar-foreground">
-            {mode === "admin" ? "Edmingle" : "Classly"}
+            Classly
           </span>
           <span className="text-[10px] font-medium text-muted-foreground -mt-0.5">
-            {mode === "admin" ? "Super Admin Platform" : "Coaching Operations"}
+            {mode === "admin" ? "Platform admin" : mode === "teacher" ? "Teacher portal" : "Institute"}
           </span>
         </div>
       </div>
@@ -134,7 +181,7 @@ export function AppSidebar({
         {isBlocked && (
           <div className="mb-3 p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 flex items-center gap-2 text-xs font-semibold">
             <ShieldAlert className="size-4 shrink-0 text-red-600" />
-            <span>Account Suspended</span>
+            <span>Account suspended</span>
           </div>
         )}
 
@@ -146,7 +193,7 @@ export function AppSidebar({
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const Icon = item.icon
-                const selected = pathname === item.url
+                const selected = isItemSelected(item.url)
                 const isItemDisabled = isBlocked && item.url !== "/institute/settings"
 
                 return (
@@ -179,22 +226,24 @@ export function AppSidebar({
 
       {/* User Profile Footer */}
       <div className="border-t border-sidebar-border p-3">
-        <div className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-sidebar-accent transition-colors">
-          <UserButton
-            appearance={{
-              elements: {
-                userButtonAvatarBox: "size-8 rounded-full ring-2 ring-primary/20",
-              },
-            }}
-          />
-          <div className="min-w-0 flex-1 text-left">
-            <span className="block truncate text-[13px] font-semibold text-sidebar-foreground">
-              {adminName}
-            </span>
-            <span className="block text-[10px] text-muted-foreground truncate">
-              {mode === "admin" ? "Super Administrator" : instituteName}
-            </span>
-          </div>
+        <div className="flex items-center gap-2.5 p-1 rounded-lg hover:bg-sidebar-accent transition-colors" suppressHydrationWarning>
+          {mounted ? (
+            <UserDropdown
+              align="start"
+              side="top"
+              sideOffset={10}
+              showName={true}
+              subtitle={mode === "admin" ? "Admin" : mode === "teacher" ? `Teacher, ${instituteName}` : instituteName}
+            />
+          ) : (
+            <div className="flex items-center gap-2.5 p-1 w-full">
+              <div className="size-8 rounded-full bg-sidebar-accent animate-pulse ring-2 ring-primary/10 shrink-0" />
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="h-3 w-20 bg-sidebar-accent rounded animate-pulse" />
+                <div className="h-2 w-28 bg-sidebar-accent rounded animate-pulse" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </aside>

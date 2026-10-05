@@ -10,15 +10,17 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Edmingle — Admin Dashboard",
-  description: "Super Admin Platform for Edmingle",
+  title: "Classly",
+  description: "Coaching institute management platform",
 };
 
 import { Toaster } from "@/components/ui/toaster";
 
+import { clerkAppearance } from "@/lib/clerk-theme";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider appearance={clerkAppearance}>
       <html
         lang="en"
         suppressHydrationWarning

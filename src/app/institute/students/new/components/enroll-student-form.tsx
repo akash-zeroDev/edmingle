@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { User, Phone, Mail, MapPin, BookOpen, GraduationCap } from "lucide-react"
 import { enrollStudent } from "@/actions/student"
 import { useToast } from "@/hooks/use-toast"
+import { CustomSelect } from "@/components/ui/custom-select"
 
 export function EnrollStudentForm({ batches }: { batches: any[] }) {
   const router = useRouter();
@@ -46,7 +47,7 @@ export function EnrollStudentForm({ batches }: { batches: any[] }) {
     } else {
       toast({
         title: "Success",
-        description: "Student enrolled successfully!"
+        description: "Student enrolled.",
       });
       router.push("/institute/students");
     }
@@ -111,8 +112,8 @@ export function EnrollStudentForm({ batches }: { batches: any[] }) {
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-[12px] font-semibold text-[#1a201c]">Email Address</label>
-              <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">Portal Invite</span>
+              <label className="block text-[12px] font-semibold text-[#1a201c]">Email address</label>
+              <span className="text-[10px] font-medium text-[#5e6b63] bg-slate-100 px-1.5 py-0.5 rounded">Optional</span>
             </div>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#a1b0a6]" />
@@ -125,7 +126,7 @@ export function EnrollStudentForm({ batches }: { batches: any[] }) {
               />
             </div>
             <p className="text-[11px] text-[#5e6b63] mt-1.5">
-              💡 If provided, an activation invitation will be dispatched automatically for Student Portal login.
+              An invite link will be sent to this email.
             </p>
           </div>
 
@@ -150,42 +151,44 @@ export function EnrollStudentForm({ batches }: { batches: any[] }) {
         <div className="px-6 py-5 border-b border-[#e7e9ed] bg-[#fafbfc]">
           <h2 className="text-[15px] font-bold text-[#1a201c] flex items-center gap-2">
             <GraduationCap className="w-4 h-4 text-primary" />
-            Batch Assignment (Optional)
+            Batch (Optional)
           </h2>
-          <p className="text-[12px] text-[#5e6b63] mt-1">Assign an initial course or study cohort.</p>
+          <p className="text-[12px] text-[#5e6b63] mt-1">Assign an initial batch.</p>
         </div>
         
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-[12px] font-semibold text-[#1a201c] mb-2">Select Class / Grade</label>
-            <select
+            <label className="block text-[12px] font-semibold text-[#1a201c] mb-2">Class</label>
+            <CustomSelect
               value={selectedClass}
-              onChange={e => {
-                setSelectedClass(e.target.value);
+              onChange={(val) => {
+                setSelectedClass(val);
                 setSelectedBatchId("");
               }}
-              className="w-full h-11 px-4 text-[13px] bg-white border border-[#e3e8e5] rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[#1a201c] cursor-pointer"
-            >
-              <option value="">-- Choose Class --</option>
-              {uniqueClasses.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+              options={uniqueClasses.map((c) => ({ value: c, label: c }))}
+              placeholder="Select class"
+              searchPlaceholder="Search classes..."
+              searchable={uniqueClasses.length > 5}
+              size="lg"
+            />
           </div>
 
           {selectedClass && (
             <div>
-              <label className="block text-[12px] font-semibold text-[#1a201c] mb-2">Select Subject Batch</label>
-              <select
+              <label className="block text-[12px] font-semibold text-[#1a201c] mb-2">Batch</label>
+              <CustomSelect
                 value={selectedBatchId}
-                onChange={e => setSelectedBatchId(e.target.value)}
-                className="w-full h-11 px-4 text-[13px] bg-white border border-[#e3e8e5] rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[#1a201c] cursor-pointer"
-              >
-                <option value="">-- Choose Subject / Timing --</option>
-                {eligibleBatches.map(b => (
-                  <option key={b.id} value={b.id}>{b.subject} {b.timing ? `(${b.timing})` : ''}</option>
-                ))}
-              </select>
+                onChange={setSelectedBatchId}
+                options={eligibleBatches.map((b) => ({
+                  value: b.id,
+                  label: b.subject,
+                  description: b.timing ? `Timing: ${b.timing}` : undefined,
+                }))}
+                placeholder="Select batch"
+                searchPlaceholder="Search batches..."
+                searchable={eligibleBatches.length > 5}
+                size="lg"
+              />
             </div>
           )}
         </div>
@@ -205,7 +208,7 @@ export function EnrollStudentForm({ batches }: { batches: any[] }) {
           disabled={isSubmitting || !formData.name}
           className="h-11 px-8 rounded-xl bg-primary hover:bg-primary-hover text-white shadow-sm transition-all font-semibold"
         >
-          {isSubmitting ? "Saving..." : "Enroll Student"}
+          {isSubmitting ? "Saving..." : "Add student"}
         </Button>
       </div>
 
