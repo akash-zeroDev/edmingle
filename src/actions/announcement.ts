@@ -61,16 +61,16 @@ export async function createBatchAnnouncement(data: {
     let targetInstituteId = institute ? institute.id : teacher!.instituteId
     let targetTeacherId = teacher ? teacher.id : null
 
-    // If targetBatchId is given, guarantee correct instituteId
+    // If targetBatchId is given, guarantee it belongs to this institute
     if (targetBatchId) {
       const b = await prisma.batch.findUnique({
         where: { id: targetBatchId },
       }).catch(() => null)
-      if (b) {
-        targetInstituteId = b.instituteId
-        if (!targetTeacherId && b.teacherId) {
-          targetTeacherId = b.teacherId
-        }
+      if (!b || b.instituteId !== targetInstituteId) {
+        return { error: "Unauthorized: batch does not belong to your institute." }
+      }
+      if (!targetTeacherId && b.teacherId) {
+        targetTeacherId = b.teacherId
       }
     }
 
@@ -147,6 +147,40 @@ export async function deleteAnnouncement(announcementId: string) {
   try {
     const user = await currentUser()
     if (!user) return { error: "Unauthorized." }
+
+    const emailList = user.emailAddresses?.map((e) => e.emailAddress.toLowerCase()) || []
+    const phoneList = user.phoneNumbers?.map((p) => p.phoneNumber.replace(/\D/g, "")).filter(Boolean) || []
+
+    const institute = await prisma.institute.findFirst({
+      where: { adminEmail: { in: emailList } },
+    })
+
+    const teacher = !institute
+      ? await prisma.teacher.findFirst({
+          where: {
+            OR: [
+              { clerkUserId: user.id },
+              ...(emailList.length > 0 ? [{ email: { in: emailList } }] : []),
+              ...(phoneList.length > 0 ? [{ phoneNo: { in: phoneList } }] : []),
+            ],
+          },
+        })
+      : null
+
+    if (!institute && !teacher) {
+      return { error: "Unauthorized." }
+    }
+
+    const callerInstituteId = institute ? institute.id : teacher!.instituteId
+
+    // Find the announcement and ensure it belongs to caller's institute
+    const existing = await prisma.announcement.findUnique({
+      where: { id: announcementId },
+    }).catch(() => null)
+
+    if (!existing || existing.instituteId !== callerInstituteId) {
+      return { error: "Unauthorized: announcement not found in your institute." }
+    }
 
     try {
       await prisma.announcement.delete({

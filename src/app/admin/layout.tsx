@@ -1,18 +1,17 @@
-import { currentUser } from "@clerk/nextjs/server"
-import { redirect } from "next/navigation"
+import { requireRoleAuth } from "@/lib/auth-guard"
 import { AppSidebar } from "@/components/app-sidebar"
 import { TopBar } from "@/components/top-bar"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const user = await currentUser();
-  
-  if (user?.publicMetadata?.role !== "superadmin") {
-    redirect("/"); 
-  }
+  // Enforce Superadmin-only access. Non-superadmin users are redirected to their own role dashboard.
+  const { user } = await requireRoleAuth(["superadmin"])
 
   const adminName = user.firstName
     ? `${user.firstName} ${user.lastName || ""}`.trim()
-    : "Master Admin";
+    : "Master Admin"
 
   return (
     <div className="min-h-screen bg-background text-foreground flex">
@@ -21,7 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <AppSidebar
           mode="admin"
           adminName={adminName}
-          instituteName="Edmingle Platform"
+          instituteName="Classly Platform"
         />
       </div>
 
@@ -30,7 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <TopBar
           title="Super Admin Portal"
           subtitle="Platform Overview"
-          instituteName="Edmingle Platform"
+          instituteName="Classly Platform"
           mode="admin"
         />
 

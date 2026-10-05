@@ -1,8 +1,8 @@
-import { currentUser } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
 import { GraduationCap, ArrowLeft, BookOpen, Calendar, IndianRupee, Megaphone, CircleHelp } from "lucide-react"
 import { UserDropdown } from "@/components/user-dropdown"
 import { ReportIssueDialog } from "@/components/report-issue-dialog"
+import { requireRoleAuth } from "@/lib/auth-guard"
 import Link from "next/link"
 
 export default async function StudentLayout({
@@ -10,11 +10,8 @@ export default async function StudentLayout({
 }: {
   children: React.ReactNode
 }) {
-  const user = await currentUser()
-
-  if (!user) {
-    redirect("/")
-  }
+  // Enforce Student access: Teachers redirect to /teacher, Institute Admins to /institute
+  const { user } = await requireRoleAuth(["student", "superadmin"])
 
   const studentName = user.firstName
     ? `${user.firstName} ${user.lastName || ""}`.trim()

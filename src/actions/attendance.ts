@@ -71,6 +71,10 @@ export async function submitBatchAttendance(data: SubmitBatchAttendanceInput) {
       return { error: "Unauthorized. Faculty or Institute Admin account required." }
     }
 
+    if (institute && batch.instituteId !== institute.id) {
+      return { error: "Unauthorized: batch does not belong to your institute." }
+    }
+
     if (teacher && batch.instituteId !== teacher.instituteId) {
       return { error: "Unauthorized: batch does not belong to your institute." }
     }

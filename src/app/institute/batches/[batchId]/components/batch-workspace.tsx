@@ -62,8 +62,6 @@ import {
 import {
   fallbackStudents,
   mockFeeRows,
-  mockModules,
-  mockTimetable,
   type MockStudent,
 } from "@/data/mock-batch-workspace"
 import { enrollStudentInBatch, removeStudentFromBatch, enrollTeacherInBatch } from "@/actions/batch"
@@ -492,23 +490,20 @@ export function BatchWorkspace({
           </div>
         </div>
 
-        {/* Metric 3: Syllabus Progress */}
+        {/* Metric 3: Batch Announcements */}
         <div className="p-5 rounded-2xl bg-white border border-[#e7e9ed] shadow-[0_1px_2px_rgba(16,24,40,0.03)]">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#5e6b63]">Syllabus Progress</span>
+            <span className="text-xs font-semibold text-[#5e6b63]">Announcements</span>
             <div className="size-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
-              <BookOpen className="size-4" />
+              <Megaphone className="size-4" />
             </div>
           </div>
           <div className="mt-3 text-2xl font-bold text-[#15171b]">
-            68%
+            {announcementsList.length}
           </div>
-          <div className="mt-2 flex items-center gap-2">
-            <div className="flex-1 h-1.5 rounded-full bg-[#f0f2f5] overflow-hidden">
-              <div className="h-full bg-blue-600 rounded-full" style={{ width: "68%" }} />
-            </div>
-            <span className="text-[11px] text-[#5e6b63]">42 of 62 topics</span>
-          </div>
+          <p className="mt-2 text-[11px] text-[#5e6b63]">
+            Active batch broadcasts
+          </p>
         </div>
 
         {/* Metric 4: Average Attendance */}
@@ -549,15 +544,17 @@ export function BatchWorkspace({
               </TabsTrigger>
               <TabsTrigger
                 value="curriculum"
-                className="h-12 px-1 text-xs font-semibold"
+                className="h-12 px-1 text-xs font-semibold inline-flex items-center gap-1.5"
               >
-                Curriculum
+                <span>Curriculum</span>
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">v2</span>
               </TabsTrigger>
               <TabsTrigger
                 value="timetable"
-                className="h-12 px-1 text-xs font-semibold"
+                className="h-12 px-1 text-xs font-semibold inline-flex items-center gap-1.5"
               >
-                Timetable
+                <span>Timetable</span>
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">v2</span>
               </TabsTrigger>
               <TabsTrigger
                 value="announcements"
@@ -818,121 +815,121 @@ export function BatchWorkspace({
             </div>
           </TabsContent>
 
-          {/* TAB 3: CURRICULUM / SYLLABUS */}
-          <TabsContent value="curriculum" className={cn("p-6 space-y-4 animate-in fade-in duration-150", isTabPending && "opacity-60")}>
-            <div className="flex justify-between items-center mb-2">
-              <div>
-                <h3 className="text-sm font-bold text-[#15171b]">Syllabus Progress & Chapters</h3>
-                <p className="text-xs text-[#5e6b63] mt-0.5">
-                  Track course modules, lecture coverage, and milestone completion for {batch.subject}.
+          {/* TAB 3: CURRICULUM / SYLLABUS (DEFERRED TO V2) */}
+          <TabsContent value="curriculum" className={cn("p-8 animate-in fade-in duration-150", isTabPending && "opacity-60")}>
+            <div className="max-w-3xl mx-auto rounded-2xl border border-dashed border-[#d0d7d2] bg-[#fbfcfb] p-8 text-center space-y-6">
+              <div className="size-14 rounded-2xl bg-primary-light text-primary flex items-center justify-center mx-auto shadow-xs">
+                <BookOpen className="size-7" />
+              </div>
+              <div className="space-y-2 max-w-lg mx-auto">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">
+                  <Sparkles className="size-3.5" />
+                  <span>Roadmap Feature · Scheduled for v2</span>
+                </div>
+                <h3 className="text-lg font-bold text-[#15171b]">
+                  Curriculum & Syllabus Management Flow
+                </h3>
+                <p className="text-xs text-[#5e6b63] leading-relaxed">
+                  We are building an end-to-end curriculum engine for {batch.className} ({batch.subject}). The full flow will allow custom chapter structuring, live lecture lesson logs, and automated student progress synchronisation.
                 </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  toast({
-                    title: "Syllabus Plan Updated",
-                    description: "Module completion recorded.",
-                  })
-                }
-                className="h-9 text-xs border-[#e3e8e5] rounded-xl focus:outline-none focus-visible:outline-none"
-              >
-                <Plus className="size-3.5 mr-1.5" />
-                Add Module
-              </Button>
-            </div>
 
-            <div className="divide-y divide-[#e7e9ed] border border-[#e7e9ed] rounded-xl overflow-hidden bg-white">
-              {mockModules.map((module, index) => (
-                <div
-                  key={module.name}
-                  onClick={() =>
-                    toast({
-                      title: module.name,
-                      description: `Progress: ${module.progress}%, ${module.topics}`,
-                    })
-                  }
-                  className="grid gap-3 px-5 py-4.5 md:grid-cols-[40px_minmax(0,1fr)_220px] md:items-center hover:bg-[#fafbfc] transition-colors cursor-pointer group"
-                >
-                  <span className="size-8 rounded-lg bg-primary-light text-primary text-xs font-bold flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <div>
-                    <h4 className="text-sm font-bold text-[#15171b] group-hover:text-primary transition-colors">{module.name}</h4>
-                    <p className="text-xs text-[#5e6b63] mt-0.5">{module.topics}</p>
+              {/* Planned Capabilities Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left pt-2">
+                <div className="p-4 rounded-xl border border-[#e7e9ed] bg-white shadow-xs space-y-2">
+                  <div className="size-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                    <Layers3 className="size-4" />
                   </div>
-                  <div>
-                    <div className="flex justify-between text-xs mb-1.5">
-                      <span className="text-[#5e6b63]">Completion</span>
-                      <span className="font-bold text-primary">{module.progress}%</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-[#f0f2f5] overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full transition-all"
-                        style={{ width: `${module.progress}%` }}
-                      />
-                    </div>
-                  </div>
+                  <h4 className="text-xs font-bold text-[#15171b]">Chapter Architecture</h4>
+                  <p className="text-[11px] text-[#5e6b63] leading-relaxed">
+                    Break course syllabi into modular units, lecture hours, and custom milestones per subject.
+                  </p>
                 </div>
-              ))}
+                <div className="p-4 rounded-xl border border-[#e7e9ed] bg-white shadow-xs space-y-2">
+                  <div className="size-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
+                    <Clock className="size-4" />
+                  </div>
+                  <h4 className="text-xs font-bold text-[#15171b]">Faculty Lesson Logging</h4>
+                  <p className="text-[11px] text-[#5e6b63] leading-relaxed">
+                    Assigned faculty ({batch.teacher ? batch.teacher.name : "Faculty"}) can mark topics taught with lecture notes and handouts.
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl border border-[#e7e9ed] bg-white shadow-xs space-y-2">
+                  <div className="size-8 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center">
+                    <GraduationCap className="size-4" />
+                  </div>
+                  <h4 className="text-xs font-bold text-[#15171b]">Student Sync</h4>
+                  <p className="text-[11px] text-[#5e6b63] leading-relaxed">
+                    Live syllabus percentage automatically displayed on enrolled students&apos; dashboards.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <span className="inline-flex items-center gap-1.5 text-xs text-[#5e6b63] font-medium bg-white px-3 py-1.5 rounded-lg border border-[#e7e9ed]">
+                  <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+                  Deferred for v2 release · Full interactive builder currently in design phase
+                </span>
+              </div>
             </div>
           </TabsContent>
 
-          {/* TAB 4: TIMETABLE & LECTURES */}
-          <TabsContent value="timetable" className={cn("p-6 space-y-4 animate-in fade-in duration-150", isTabPending && "opacity-60")}>
-            <div className="flex justify-between items-center mb-2">
-              <div>
-                <h3 className="text-sm font-bold text-[#15171b]">Weekly schedule</h3>
+          {/* TAB 4: TIMETABLE & LECTURES (DEFERRED TO V2) */}
+          <TabsContent value="timetable" className={cn("p-8 animate-in fade-in duration-150", isTabPending && "opacity-60")}>
+            <div className="max-w-3xl mx-auto rounded-2xl border border-dashed border-[#d0d7d2] bg-[#fbfcfb] p-8 text-center space-y-6">
+              <div className="size-14 rounded-2xl bg-primary-light text-primary flex items-center justify-center mx-auto shadow-xs">
+                <CalendarDays className="size-7" />
               </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700">
-                Teacher: {batch.teacher ? batch.teacher.name : "Unassigned"}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              {mockTimetable.map((slot) => (
-                <div
-                  key={slot.day}
-                  onClick={() =>
-                    toast({
-                      title: `${slot.day} · ${slot.topic}`,
-                      description: `${slot.time}, ${slot.room}, Teacher: ${batch.teacher ? batch.teacher.name : "Unassigned"}`,
-                    })
-                  }
-                  className="p-5 rounded-xl border border-[#e7e9ed] bg-white shadow-sm flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group"
-                >
-                  <div>
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground group-hover:text-primary transition-colors">
-                      {slot.day} · {slot.date}
-                    </div>
-                    <div className="mt-3 text-lg font-bold text-primary font-mono">
-                      {slot.time}
-                    </div>
-                    <div className="mt-2 text-sm font-bold text-[#15171b]">
-                      {slot.topic}
-                    </div>
-                    <div className="mt-1 text-xs text-[#5e6b63]">
-                      {slot.room} · {batch.teacher ? batch.teacher.name : "Unassigned"}
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      toast({
-                        title: `${slot.day} details`,
-                        description: `Class scheduled for ${slot.time} in ${slot.room}.`,
-                      })
-                    }}
-                    className="mt-4 w-full h-8 text-xs border-[#e3e8e5] rounded-lg focus:outline-none focus-visible:outline-none cursor-pointer"
-                  >
-                    Details
-                  </Button>
+              <div className="space-y-2 max-w-lg mx-auto">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">
+                  <Sparkles className="size-3.5" />
+                  <span>Roadmap Feature · Scheduled for v2</span>
                 </div>
-              ))}
+                <h3 className="text-lg font-bold text-[#15171b]">
+                  Weekly Timetable & Room Scheduler
+                </h3>
+                <p className="text-xs text-[#5e6b63] leading-relaxed">
+                  The complete multi-batch timetable planner with conflict resolution and room assignment will launch in v2. In the meantime, use the Announcements tab to broadcast schedule updates.
+                </p>
+              </div>
+
+              {/* Planned Capabilities Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left pt-2">
+                <div className="p-4 rounded-xl border border-[#e7e9ed] bg-white shadow-xs space-y-2">
+                  <div className="size-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                    <CalendarDays className="size-4" />
+                  </div>
+                  <h4 className="text-xs font-bold text-[#15171b]">Conflict Detection</h4>
+                  <p className="text-[11px] text-[#5e6b63] leading-relaxed">
+                    Automatic alerts prevent assigning the same teacher or classroom space to overlapping time slots.
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl border border-[#e7e9ed] bg-white shadow-xs space-y-2">
+                  <div className="size-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
+                    <Megaphone className="size-4" />
+                  </div>
+                  <h4 className="text-xs font-bold text-[#15171b]">Reschedule Alerts</h4>
+                  <p className="text-[11px] text-[#5e6b63] leading-relaxed">
+                    Instant notifications pushed to enrolled students whenever a class is rescheduled or cancelled.
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl border border-[#e7e9ed] bg-white shadow-xs space-y-2">
+                  <div className="size-8 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center">
+                    <Users className="size-4" />
+                  </div>
+                  <h4 className="text-xs font-bold text-[#15171b]">Multi-Faculty Sync</h4>
+                  <p className="text-[11px] text-[#5e6b63] leading-relaxed">
+                    Personalized calendars automatically compiled for each teacher and student across all their batches.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <span className="inline-flex items-center gap-1.5 text-xs text-[#5e6b63] font-medium bg-white px-3 py-1.5 rounded-lg border border-[#e7e9ed]">
+                  <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+                  Deferred for v2 release · Complete calendar drag-and-drop flow in development
+                </span>
+              </div>
             </div>
           </TabsContent>
 

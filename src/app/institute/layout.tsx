@@ -5,26 +5,16 @@ import prisma from "@/lib/prisma"
 import { AppSidebar } from "@/components/app-sidebar"
 import { TopBar } from "@/components/top-bar"
 import { getAuthenticatedInstitute } from "@/lib/current-institute"
+import { requireRoleAuth } from "@/lib/auth-guard"
 import { ImpersonationBanner } from "./components/impersonation-banner"
 
 export default async function InstituteLayout({ children }: { children: React.ReactNode }) {
-  const user = await currentUser();
-  
-  if (!user) {
-    redirect("/"); 
-  }
-
-  const role = user.publicMetadata?.role;
-  const isSuperAdmin = role === "superadmin";
-  const isInstituteAdmin = role === "institute_admin";
-
-  if (!isSuperAdmin && !isInstituteAdmin) {
-    redirect("/"); 
-  }
+  // Enforce Institute Admin access. Teachers redirect to /teacher, Students to /student, Superadmin without impersonation to /admin.
+  const { user, role } = await requireRoleAuth(["institute_admin"], { allowImpersonation: true });
 
   const authData = await getAuthenticatedInstitute();
   if (!authData?.institute) {
-    if (isSuperAdmin) {
+    if (role === "superadmin") {
       redirect("/admin/institutes");
     }
     redirect("/onboarding");

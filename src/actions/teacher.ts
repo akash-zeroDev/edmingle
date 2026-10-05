@@ -112,7 +112,7 @@ export async function suspendTeacher(teacherId: string, reason?: string) {
     if (!authData?.institute) throw new Error("Institute not found or unauthorized")
     const institute = authData.institute
 
-    const teacher = await prisma.teacher.findUnique({
+    const teacher = await prisma.teacher.findFirst({
       where: { id: teacherId, instituteId: institute.id },
       include: { batchesTaught: true },
     })
@@ -156,7 +156,7 @@ export async function reactivateTeacher(teacherId: string) {
     if (!authData?.institute) throw new Error("Institute not found or unauthorized")
     const institute = authData.institute
 
-    const teacher = await prisma.teacher.findUnique({
+    const teacher = await prisma.teacher.findFirst({
       where: { id: teacherId, instituteId: institute.id },
       include: { batchesTaught: true },
     })
@@ -196,7 +196,7 @@ export async function removeTeacher(teacherId: string, reason?: string) {
     if (!authData?.institute) throw new Error("Institute not found or unauthorized")
     const institute = authData.institute
 
-    const teacher = await prisma.teacher.findUnique({
+    const teacher = await prisma.teacher.findFirst({
       where: { id: teacherId, instituteId: institute.id },
       include: { batchesTaught: true },
     })
@@ -246,7 +246,7 @@ export async function resendTeacherInvitation(teacherId: string) {
     if (!authData?.institute) throw new Error("Institute not found or unauthorized")
     const institute = authData.institute
 
-    const teacher = await prisma.teacher.findUnique({
+    const teacher = await prisma.teacher.findFirst({
       where: { id: teacherId, instituteId: institute.id },
     })
 

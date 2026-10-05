@@ -131,7 +131,7 @@ export async function reactivateStudent(studentId: string) {
     if (!authData?.institute) throw new Error("Institute not found or unauthorized");
     const { institute, user } = authData;
 
-    const student = await prisma.student.findUnique({
+    const student = await prisma.student.findFirst({
       where: { id: studentId, instituteId: institute.id },
       include: {
         batches: {

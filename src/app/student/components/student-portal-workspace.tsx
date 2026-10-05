@@ -24,6 +24,7 @@ import {
   Layers3,
   Globe,
   Settings,
+  Sparkles,
 } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -31,7 +32,6 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import { mockModules, mockTimetable } from "@/data/mock-batch-workspace"
 import type { BatchAnnouncementItem } from "@/actions/announcement"
 import { PhoneChangeModal } from "@/components/settings/phone-change-modal"
 import { FeeReceiptModal, type ReceiptData } from "@/app/institute/fees/components/fee-receipt-modal"
@@ -270,12 +270,12 @@ export function StudentPortalWorkspace({
             <Button
               size="sm"
               onClick={() => {
-                setActiveTab("timetable")
+                setActiveTab("announcements")
               }}
               className="rounded-xl h-10 px-4 text-xs font-semibold bg-primary hover:bg-primary-hover text-white shadow-xs cursor-pointer"
             >
-              <Calendar className="size-3.5 mr-1.5" />
-              Schedule
+              <Megaphone className="size-3.5 mr-1.5" />
+              Announcements
             </Button>
           </div>
         </div>
@@ -311,18 +311,18 @@ export function StudentPortalWorkspace({
           </div>
         </div>
 
-        {/* Metric 3: Syllabus Progress */}
+        {/* Metric 3: Announcements */}
         <div className="rounded-2xl border border-[#e7e9ed] bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between text-xs text-[#5e6b63] mb-2 font-medium">
-            <span>Syllabus completed</span>
-            <GraduationCap className="size-4 text-primary" />
+            <span>Announcements</span>
+            <Megaphone className="size-4 text-primary" />
           </div>
           <div className="text-2xl font-bold text-[#15171b]">
-            68%
+            {announcements.length}
           </div>
-          <div className="w-full h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
-            <div className="h-full bg-primary rounded-full w-[68%]" />
-          </div>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Active institute notices
+          </p>
         </div>
 
         {/* Metric 4: Fee Realization */}
@@ -352,10 +352,12 @@ export function StudentPortalWorkspace({
               <TabsTrigger value="timetable" className="gap-2 pb-3.5 pt-3">
                 <Calendar className="size-4" />
                 <span>Timetable</span>
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">v2</span>
               </TabsTrigger>
               <TabsTrigger value="curriculum" className="gap-2 pb-3.5 pt-3">
                 <GraduationCap className="size-4" />
                 <span>Syllabus</span>
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">v2</span>
               </TabsTrigger>
               <TabsTrigger value="fees" className="gap-2 pb-3.5 pt-3">
                 <IndianRupee className="size-4" />
@@ -431,92 +433,81 @@ export function StudentPortalWorkspace({
             </div>
           </TabsContent>
 
-          {/* TAB 2: WEEKLY TIMETABLE */}
-          <TabsContent value="timetable" className="p-6 space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h3 className="text-sm font-bold text-[#15171b]">
-                  Timetable
-                </h3>
+          {/* TAB 2: WEEKLY TIMETABLE (DEFERRED TO V2) */}
+          <TabsContent value="timetable" className="p-8 space-y-4">
+            <div className="max-w-2xl mx-auto rounded-2xl border border-dashed border-[#d0d7d2] bg-[#fbfcfb] p-8 text-center space-y-5">
+              <div className="size-14 rounded-2xl bg-primary-light text-primary flex items-center justify-center mx-auto shadow-xs">
+                <Calendar className="size-7" />
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {mockTimetable.map((slot, idx) => (
-                <div
-                  key={idx}
-                  className="p-4 rounded-xl border border-[#e7e9ed] bg-white hover:border-primary/40 hover:shadow-xs transition-all space-y-2 cursor-pointer group"
-                  onClick={() => {
-                    toast({
-                      title: slot.topic,
-                      description: `${slot.day} · ${slot.time} in ${slot.room}`,
-                    })
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-primary">{slot.day}</span>
-                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                      {slot.room}
-                    </span>
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-bold text-[#15171b] group-hover:text-primary transition-colors">
-                      {slot.topic}
-                    </h5>
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-1">
-                      <Clock className="size-3 text-slate-400" />
-                      <span>{slot.time}</span>
-                    </div>
-                  </div>
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">
+                  <Sparkles className="size-3.5" />
+                  <span>Roadmap Feature · Scheduled for v2</span>
                 </div>
-              ))}
+                <h3 className="text-base font-bold text-[#15171b]">
+                  Interactive Class Schedule & Timetable
+                </h3>
+                <p className="text-xs text-[#5e6b63] leading-relaxed max-w-md mx-auto">
+                  A personalized weekly timetable with live classroom locations, subject slots, and teacher schedules is being built for the next major release.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl border border-[#e7e9ed] bg-white text-left text-xs text-[#5e6b63] flex items-center gap-3">
+                <Megaphone className="size-5 text-primary shrink-0" />
+                <span>
+                  Check the <strong>Announcements</strong> tab for daily lecture timings, holiday schedules, and special class notices posted by your teachers.
+                </span>
+              </div>
+
+              <div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setActiveTab("announcements")}
+                  className="rounded-xl h-9 text-xs font-semibold cursor-pointer"
+                >
+                  View Announcements
+                </Button>
+              </div>
             </div>
           </TabsContent>
 
-          {/* TAB 3: CURRICULUM PROGRESS */}
-          <TabsContent value="curriculum" className="p-6 space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h3 className="text-sm font-bold text-[#15171b]">
-                  Syllabus
-                </h3>
+          {/* TAB 3: CURRICULUM PROGRESS (DEFERRED TO V2) */}
+          <TabsContent value="curriculum" className="p-8 space-y-4">
+            <div className="max-w-2xl mx-auto rounded-2xl border border-dashed border-[#d0d7d2] bg-[#fbfcfb] p-8 text-center space-y-5">
+              <div className="size-14 rounded-2xl bg-primary-light text-primary flex items-center justify-center mx-auto shadow-xs">
+                <GraduationCap className="size-7" />
               </div>
-            </div>
-
-            <div className="space-y-3">
-              {mockModules.map((module, idx) => (
-                <div
-                  key={idx}
-                  className="p-4 rounded-xl border border-[#e7e9ed] bg-white hover:border-primary/30 transition-all space-y-2 cursor-pointer"
-                  onClick={() => {
-                    toast({
-                      title: module.name,
-                      description: `${module.topics} completed. Progress: ${module.progress}%`,
-                    })
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#15171b]">
-                      {module.name}
-                    </span>
-                    <span className="text-xs font-semibold text-primary">
-                      {module.progress}%
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full transition-all duration-500"
-                      style={{ width: `${module.progress}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span>{module.topics}</span>
-                    <span>
-                      {module.progress === 100 ? "Completed" : "In progress"}
-                    </span>
-                  </div>
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">
+                  <Sparkles className="size-3.5" />
+                  <span>Roadmap Feature · Scheduled for v2</span>
                 </div>
-              ))}
+                <h3 className="text-base font-bold text-[#15171b]">
+                  Course Syllabus & Chapter Tracker
+                </h3>
+                <p className="text-xs text-[#5e6b63] leading-relaxed max-w-md mx-auto">
+                  Chapter-wise curriculum tracking, download links for study material, and topic progress percentages will be available in the upcoming v2 update.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl border border-[#e7e9ed] bg-white text-left text-xs text-[#5e6b63] flex items-center gap-3">
+                <BookOpen className="size-5 text-primary shrink-0" />
+                <span>
+                  All your active batch enrollments and subject details are available in the <strong>Batches</strong> tab.
+                </span>
+              </div>
+
+              <div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setActiveTab("batches")}
+                  className="rounded-xl h-9 text-xs font-semibold cursor-pointer"
+                >
+                  View Enrolled Batches
+                </Button>
+              </div>
             </div>
           </TabsContent>
 

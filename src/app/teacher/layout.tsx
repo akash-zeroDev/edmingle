@@ -1,19 +1,16 @@
-import { currentUser } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
 import prisma from "@/lib/prisma"
 import { AppSidebar } from "@/components/app-sidebar"
 import { TopBar } from "@/components/top-bar"
+import { requireRoleAuth } from "@/lib/auth-guard"
 
 export default async function TeacherLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const user = await currentUser()
-
-  if (!user) {
-    redirect("/")
-  }
+  // Enforce Teacher access: Students redirect to /student, Institute Admins to /institute
+  const { user } = await requireRoleAuth(["teacher", "superadmin"])
 
   const emailList = user.emailAddresses?.map((e) => e.emailAddress.toLowerCase()) || []
   const clerkUserId = user.id
