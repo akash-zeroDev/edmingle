@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Users, Mail, CheckCircle2 } from "lucide-react"
+import { Users, Mail, CheckCircle2, Pencil } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import {
   Table,
   TableHeader,
@@ -13,9 +14,11 @@ import {
 import { SearchBar } from "@/components/ui/search-bar"
 import { DataTableCard } from "@/components/ui/data-table-card"
 import { EntityProfileHost, useEntityProfile } from "@/components/entity-profile"
+import { EditStudentDialog } from "@/components/entity-profile/edit-student-dialog"
 
 export function StudentsTable({ students }: { students: any[] }) {
   const [studentList, setStudentList] = useState(students)
+  const [editingStudent, setEditingStudent] = useState<any | null>(null)
   const [isClient, setIsClient] = useState(false)
   const [search, setSearch] = useState("")
   const { selected, expanded, openProfile, closeProfile, setExpanded } = useEntityProfile()
@@ -53,18 +56,19 @@ export function StudentsTable({ students }: { students: any[] }) {
         <Table className="w-full table-fixed border-collapse">
           <TableHeader className="bg-[#fafafa]">
             <TableRow>
-              <TableHead className="w-[24%] h-9 px-3 text-left text-[10px] font-semibold text-[#8a8e96] uppercase tracking-[0.05em] border-b border-[#e7e9ed]">Student</TableHead>
-              <TableHead className="w-[12%] h-9 px-2.5 text-left text-[10px] font-semibold text-[#8a8e96] uppercase tracking-[0.05em] border-b border-[#e7e9ed]">Status</TableHead>
-              <TableHead className="w-[16%] h-9 px-2.5 text-left text-[10px] font-semibold text-[#8a8e96] uppercase tracking-[0.05em] border-b border-[#e7e9ed]">Account</TableHead>
-              <TableHead className="w-[14%] h-9 px-2.5 text-left text-[10px] font-semibold text-[#8a8e96] uppercase tracking-[0.05em] border-b border-[#e7e9ed]">Joined Date</TableHead>
-              <TableHead className="w-[20%] h-9 px-2.5 text-left text-[10px] font-semibold text-[#8a8e96] uppercase tracking-[0.05em] border-b border-[#e7e9ed]">Enrolled Batches</TableHead>
-              <TableHead className="w-[14%] h-9 px-3 text-left text-[10px] font-semibold text-[#8a8e96] uppercase tracking-[0.05em] border-b border-[#e7e9ed]">Phone</TableHead>
+              <TableHead className="w-[22%] h-9 px-3 text-left text-[10px] font-semibold text-[#8a8e96] uppercase tracking-[0.05em] border-b border-[#e7e9ed]">Student</TableHead>
+              <TableHead className="w-[11%] h-9 px-2.5 text-left text-[10px] font-semibold text-[#8a8e96] uppercase tracking-[0.05em] border-b border-[#e7e9ed]">Status</TableHead>
+              <TableHead className="w-[14%] h-9 px-2.5 text-left text-[10px] font-semibold text-[#8a8e96] uppercase tracking-[0.05em] border-b border-[#e7e9ed]">Account</TableHead>
+              <TableHead className="w-[13%] h-9 px-2.5 text-left text-[10px] font-semibold text-[#8a8e96] uppercase tracking-[0.05em] border-b border-[#e7e9ed]">Joined Date</TableHead>
+              <TableHead className="w-[18%] h-9 px-2.5 text-left text-[10px] font-semibold text-[#8a8e96] uppercase tracking-[0.05em] border-b border-[#e7e9ed]">Enrolled Batches</TableHead>
+              <TableHead className="w-[13%] h-9 px-3 text-left text-[10px] font-semibold text-[#8a8e96] uppercase tracking-[0.05em] border-b border-[#e7e9ed]">Phone</TableHead>
+              <TableHead className="w-[9%] h-9 px-3 text-right text-[10px] font-semibold text-[#8a8e96] uppercase tracking-[0.05em] border-b border-[#e7e9ed]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredStudents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-12 text-center border-b border-[#f0f1f3]">
+                <TableCell colSpan={7} className="py-12 text-center border-b border-[#f0f1f3]">
                   <div className="w-12 h-12 rounded-full bg-primary-light flex items-center justify-center mx-auto mb-3">
                     <Users className="w-5 h-5 text-primary" />
                   </div>
@@ -159,6 +163,18 @@ export function StudentsTable({ students }: { students: any[] }) {
                     <TableCell className="px-3 py-2.5 text-[11px] text-[#45484f] border-b border-[#f0f1f3] truncate">
                       {student.phoneNo || "N/A"}
                     </TableCell>
+
+                    <TableCell className="px-3 py-2.5 text-right border-b border-[#f0f1f3]" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingStudent(student)}
+                        className="h-7 px-2 text-[11px] font-semibold text-slate-600 hover:text-primary hover:bg-primary-light/50 rounded-lg cursor-pointer inline-flex items-center gap-1"
+                      >
+                        <Pencil className="size-3" />
+                        <span>Edit</span>
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 )
               })
@@ -180,6 +196,19 @@ export function StudentsTable({ students }: { students: any[] }) {
           setStudentList((prev) => prev.filter((s) => s.id !== id))
         }}
       />
+
+      {editingStudent && (
+        <EditStudentDialog
+          student={editingStudent}
+          open={Boolean(editingStudent)}
+          onOpenChange={(open) => !open && setEditingStudent(null)}
+          onSaved={(updated) => {
+            setStudentList((prev) =>
+              prev.map((s) => (s.id === updated.id ? { ...s, ...updated } : s))
+            )
+          }}
+        />
+      )}
     </>
   )
 }

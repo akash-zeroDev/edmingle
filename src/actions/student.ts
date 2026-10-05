@@ -76,7 +76,7 @@ export async function suspendStudent(studentId: string, reason?: string) {
     if (!authData?.institute) throw new Error("Institute not found or unauthorized");
     const { institute, user } = authData;
 
-    const student = await prisma.student.findUnique({
+    const student = await prisma.student.findFirst({
       where: { id: studentId, instituteId: institute.id },
       include: {
         batches: {
@@ -181,7 +181,7 @@ export async function removeStudent(studentId: string, reason?: string) {
     if (!authData?.institute) throw new Error("Institute not found or unauthorized");
     const { institute, user } = authData;
 
-    const student = await prisma.student.findUnique({
+    const student = await prisma.student.findFirst({
       where: { id: studentId, instituteId: institute.id },
       include: {
         batches: {
@@ -236,7 +236,7 @@ export async function resendStudentInvitation(studentId: string) {
     if (!authData?.institute) throw new Error("Institute not found or unauthorized");
     const { institute, user } = authData;
 
-    const student = await prisma.student.findUnique({
+    const student = await prisma.student.findFirst({
       where: { id: studentId, instituteId: institute.id },
     });
 
@@ -266,12 +266,138 @@ export async function resendStudentInvitation(studentId: string) {
   }
 }
 
+export async function updateStudent(data: {
+  studentId: string;
+  name: string;
+  phoneNo?: string | null;
+  parentPhone?: string | null;
+  email?: string | null;
+  address?: string | null;
+}) {
+  try {
+    const authData = await getAuthenticatedInstitute();
+    if (!authData?.institute) throw new Error("Institute not found or unauthorized");
+    const { institute } = authData;
+
+    if (!data.studentId) {
+      return { error: "Student ID is required." };
+    }
+
+    const cleanName = data.name?.trim();
+    if (!cleanName) {
+      return { error: "Student name is required." };
+    }
+
+    // Verify student belongs to this institute
+    const existing = await prisma.student.findFirst({
+      where: { id: data.studentId, instituteId: institute.id },
+    });
+
+    if (!existing) {
+      return { error: "Student not found in your institute." };
+    }
+
+    const cleanPhone = data.phoneNo?.trim() || null;
+    const cleanParentPhone = data.parentPhone?.trim() || null;
+    const cleanEmail = data.email?.trim()?.toLowerCase() || null;
+    const cleanAddress = data.address?.trim() || null;
+
+    // Validate phone number format if provided
+    if (cleanPhone) {
+      const digitsOnly = cleanPhone.replace(/\D/g, "");
+      if (digitsOnly.length < 10) {
+        return { error: "Student phone number must contain at least 10 digits." };
+      }
+
+      // Check uniqueness among active students in the institute
+      const last10 = digitsOnly.slice(-10);
+      const duplicate = await prisma.student.findFirst({
+        where: {
+          instituteId: institute.id,
+          id: { not: data.studentId },
+          status: "ACTIVE",
+          phoneNo: { contains: last10 },
+        },
+      });
+
+      if (duplicate) {
+        return {
+          error: `Phone number is already associated with student "${duplicate.name}" in this institute.`,
+        };
+      }
+    }
+
+    // Validate parent phone format if provided
+    if (cleanParentPhone) {
+      const parentDigits = cleanParentPhone.replace(/\D/g, "");
+      if (parentDigits.length < 10) {
+        return { error: "Parent phone number must contain at least 10 digits." };
+      }
+    }
+
+    // Validate email format if provided
+    if (cleanEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        return { error: "Please enter a valid email address." };
+      }
+    }
+
+    // Check if login identifier changed while account was claimed in Clerk
+    const phoneChanged = cleanPhone !== existing.phoneNo;
+    const emailChanged = cleanEmail !== existing.email;
+    const shouldUnlinkClerk = (phoneChanged || emailChanged) && Boolean(existing.clerkUserId);
+
+    if (shouldUnlinkClerk) {
+      console.info(
+        `[updateStudent] Unlinking clerkUserId ${existing.clerkUserId} for student ${existing.id} due to identifier change (phone/email).`
+      );
+    }
+
+    // Perform database update
+    const updated = await prisma.student.update({
+      where: { id: data.studentId },
+      data: {
+        name: cleanName,
+        phoneNo: cleanPhone,
+        parentPhone: cleanParentPhone,
+        email: cleanEmail,
+        address: cleanAddress,
+        ...(shouldUnlinkClerk ? { clerkUserId: null } : {}),
+      },
+      include: {
+        batches: {
+          include: {
+            batch: true,
+          },
+        },
+      },
+    });
+
+    revalidatePath("/institute/students");
+    revalidatePath("/institute");
+
+    return {
+      success: true,
+      student: updated,
+      unlinkedClerk: shouldUnlinkClerk,
+      message: shouldUnlinkClerk
+        ? "Student details updated. Student will need to sign in with their new phone number / credentials."
+        : "Student profile updated successfully.",
+    };
+  } catch (error: any) {
+    console.error("Failed to update student:", error);
+    return { error: error.message || "Failed to update student." };
+  }
+}
+
 export async function getStudentPortalData() {
   try {
     const user = await currentUser();
     if (!user) return { error: "UNAUTHENTICATED" };
 
     const userEmail = user.emailAddresses[0]?.emailAddress?.toLowerCase();
+    const phoneList = user.phoneNumbers?.map((p: any) => p.phoneNumber.replace(/\D/g, "")).filter(Boolean) || [];
 
     // 1. Try finding student by existing clerkUserId
     let student = await prisma.student.findFirst({
@@ -297,7 +423,7 @@ export async function getStudentPortalData() {
       },
     });
 
-    // 2. If not found by clerkUserId, look up by publicMetadata.studentId or verified userEmail
+    // 2. If not found by clerkUserId, look up by publicMetadata.studentId, verified userEmail, or verified phone
     if (!student) {
       const studentIdFromMeta = user.publicMetadata?.studentId as string | undefined;
 
@@ -308,6 +434,12 @@ export async function getStudentPortalData() {
       if (userEmail) {
         fallbackQuery.push({ email: userEmail });
       }
+      phoneList.forEach((phone: string) => {
+        const last10 = phone.slice(-10);
+        if (last10.length >= 10) {
+          fallbackQuery.push({ phoneNo: { contains: last10 } });
+        }
+      });
 
       if (fallbackQuery.length > 0) {
         const matched = await prisma.student.findFirst({

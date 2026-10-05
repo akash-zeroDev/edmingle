@@ -13,10 +13,12 @@ import {
   RotateCcw,
   Trash2,
   CheckCircle2,
+  Pencil,
   type LucideIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { EditStudentDialog } from "./edit-student-dialog"
 import {
   Status,
   Section,
@@ -89,6 +91,7 @@ export function StudentView({
 }) {
   const [status, setStatus] = useState(profile.status === "SUSPENDED" ? "Suspended" : "Active")
   const [dialog, setDialog] = useState<string | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
   const [unenrollTargetBatchId, setUnenrollTargetBatchId] = useState<string | null>(null)
 
   const fee = profile.fees?.[0]
@@ -241,7 +244,10 @@ export function StudentView({
   return (
     <>
       {/* Quick Action Buttons Row */}
-      <div className="grid grid-cols-2 gap-2 border-b px-4 py-3 sm:grid-cols-4 sm:px-6 bg-slate-50/50">
+      <div className="grid grid-cols-2 gap-2 border-b px-4 py-3 sm:grid-cols-5 sm:px-6 bg-slate-50/50">
+        <ActionButton icon={Pencil} onClick={() => setEditOpen(true)}>
+          Edit Details
+        </ActionButton>
         <ActionButton icon={Phone} onClick={handleCall}>
           Call
         </ActionButton>
@@ -308,7 +314,20 @@ export function StudentView({
             </div>
           </Section>
 
-          <Section title="Guardian & contact">
+          <Section
+            title="Guardian & contact"
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditOpen(true)}
+                className="h-7 px-2.5 text-xs border-slate-200 hover:text-primary hover:border-primary/40 cursor-pointer"
+              >
+                <Pencil className="size-3 mr-1 text-primary" />
+                Edit
+              </Button>
+            }
+          >
             <dl className="grid gap-4 sm:grid-cols-2">
               <Detail label="Student phone" value={profile.phoneNo || "Not provided"} />
               <Detail label="Parent / guardian" value={profile.parentPhone || "Not provided"} />
@@ -472,6 +491,24 @@ export function StudentView({
           else if (dialog === "Reactivate Student") handleReactivate()
           else if (dialog === "Permanently Delete Record") handleRemove(reason)
           else if (dialog === "Unenroll") handleUnenroll(reason)
+        }}
+      />
+
+      {/* Edit Student Details Dialog */}
+      <EditStudentDialog
+        student={profile}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSaved={(updated) => {
+          onStudentUpdated?.({
+            ...profile,
+            name: updated.name,
+            phoneNo: updated.phoneNo,
+            parentPhone: updated.parentPhone,
+            email: updated.email,
+            address: updated.address,
+            clerkUserId: updated.clerkUserId,
+          })
         }}
       />
     </>
