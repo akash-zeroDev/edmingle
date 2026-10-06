@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma"
 import { readPlatformSettings } from "@/lib/platform-settings"
 import { dispatchFeeReceiptNotice } from "@/lib/notifications"
 
+export const dynamic = "force-dynamic"
+
 export async function POST(req: Request) {
   try {
     const rawBody = await req.text()
