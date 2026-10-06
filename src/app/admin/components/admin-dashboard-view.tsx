@@ -271,7 +271,7 @@ export function AdminDashboardView({
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div>
               <h2 className="text-sm font-semibold text-foreground">Platform Revenue Growth</h2>
-              <p className="text-[11px] text-muted-foreground">Monthly subscription receipts</p>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">Monthly subscription receipts</p>
             </div>
             <span className="inline-flex items-center gap-1 rounded-full bg-primary-light px-2.5 py-0.5 text-[10px] font-semibold text-primary">
               Calendar 2026
@@ -287,12 +287,12 @@ export function AdminDashboardView({
                       <stop offset="95%" stopColor="var(--primary)" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f1f3" />
-                  <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "#475569", fontWeight: 500 }} />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fontSize: 11, fill: "#64748b" }}
+                    tick={{ fontSize: 11, fill: "#475569", fontWeight: 500 }}
                     tickFormatter={(val) => `₹${Math.round(val / 1000)}k`}
                   />
                   <Tooltip
@@ -303,6 +303,8 @@ export function AdminDashboardView({
                       fontSize: "12px",
                       boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
                     }}
+                    labelStyle={{ color: "var(--foreground)", fontWeight: 600, marginBottom: "4px" }}
+                    itemStyle={{ color: "var(--primary)", fontWeight: 600 }}
                     formatter={(val: any) => [`₹${Number(val).toLocaleString("en-IN")}`, "Collected Revenue"]}
                   />
                   <Area

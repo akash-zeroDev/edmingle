@@ -106,6 +106,77 @@ export interface AnalyticsDashboardProps {
   }>
 }
 
+const CustomWaterfallTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="rounded-lg border border-border bg-card p-3 shadow-md text-xs min-w-[190px]">
+        <div className="font-semibold text-foreground border-b border-border/80 pb-1.5 mb-2">
+          {label}
+        </div>
+        <div className="space-y-1.5">
+          {payload.map((item: any, idx: number) => {
+            const isCollected = item.dataKey === "collected"
+            const isOverdue = item.dataKey === "overdue"
+            const isBilled = item.dataKey === "billed"
+
+            const title = isCollected
+              ? "Realized"
+              : isBilled
+              ? "Total Invoiced"
+              : "Overdue"
+
+            const dotClass = isCollected
+              ? "bg-primary"
+              : isOverdue
+              ? "bg-rose-500"
+              : "bg-slate-500"
+
+            const valueClass = isCollected
+              ? "font-semibold text-primary"
+              : isOverdue
+              ? "font-semibold text-rose-600"
+              : "font-semibold text-slate-800 dark:text-slate-200"
+
+            return (
+              <div key={idx} className="flex items-center justify-between gap-4 text-xs">
+                <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                  <span className={`size-2 rounded-full ${dotClass}`} />
+                  {title} :
+                </span>
+                <span className={valueClass}>
+                  ₹{Number(item.value || 0).toLocaleString("en-IN")}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+  return null
+}
+
+const CustomPieTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const item = payload[0]
+    return (
+      <div className="rounded-lg border border-border bg-card p-2.5 shadow-md text-xs min-w-[160px]">
+        <div className="font-semibold text-foreground flex items-center gap-2 mb-1.5 border-b border-border/80 pb-1">
+          <span className="size-2 rounded-full" style={{ backgroundColor: item.payload?.color }} />
+          {item.name}
+        </div>
+        <div className="flex items-center justify-between gap-3 text-xs">
+          <span className="text-slate-600 dark:text-slate-400">Revenue:</span>
+          <span className="font-semibold text-foreground">
+            ₹{Number(item.value || 0).toLocaleString("en-IN")}/mo
+          </span>
+        </div>
+      </div>
+    )
+  }
+  return null
+}
+
 export function AnalyticsDashboardView({
   financials,
   monthlyWaterfall,
@@ -247,7 +318,7 @@ export function AnalyticsDashboardView({
         {/* Gross SaaS Revenue */}
         <div className="rounded-lg border border-border bg-card p-4 transition-all hover:shadow-sm">
           <div className="flex items-start justify-between">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
               Revenue
             </span>
             <div className="grid size-7 place-items-center rounded-lg bg-primary-light text-primary">
@@ -260,14 +331,14 @@ export function AnalyticsDashboardView({
           <div className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-emerald-600">
             <ArrowUpRight className="size-3.5" />
             <span>+{financials.quarterGrowth}%</span>
-            <span className="text-muted-foreground">vs last quarter</span>
+            <span className="text-slate-600 dark:text-slate-400 font-normal">vs last quarter</span>
           </div>
         </div>
 
         {/* Accounts Receivable */}
         <div className="rounded-lg border border-border bg-card p-4 transition-all hover:shadow-sm">
           <div className="flex items-start justify-between">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
               Receivables
             </span>
             <div className="grid size-7 place-items-center rounded-lg bg-amber-50 text-amber-600">
@@ -286,7 +357,7 @@ export function AnalyticsDashboardView({
         {/* SaaS Run-Rate (ARR) */}
         <div className="rounded-lg border border-border bg-card p-4 transition-all hover:shadow-sm">
           <div className="flex items-start justify-between">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
               SaaS Run-Rate (ARR)
             </span>
             <div className="grid size-7 place-items-center rounded-lg bg-purple-50 text-purple-600">
@@ -296,7 +367,7 @@ export function AnalyticsDashboardView({
           <div className="mt-2 text-xl font-bold text-foreground">
             ₹{financials.arr.toLocaleString("en-IN")}
           </div>
-          <div className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+          <div className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-400">
             <span>MRR: ₹{financials.mrr.toLocaleString("en-IN")}/mo</span>
           </div>
         </div>
@@ -304,7 +375,7 @@ export function AnalyticsDashboardView({
         {/* Collection Efficiency */}
         <div className="rounded-lg border border-border bg-card p-4 transition-all hover:shadow-sm">
           <div className="flex items-start justify-between">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
               Collection rate
             </span>
             <div className="grid size-7 place-items-center rounded-lg bg-emerald-50 text-emerald-600">
@@ -323,7 +394,7 @@ export function AnalyticsDashboardView({
         {/* Platform GMV (Student Tuition) */}
         <div className="rounded-lg border border-border bg-card p-4 transition-all hover:shadow-sm">
           <div className="flex items-start justify-between">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
               Total tuition volume
             </span>
             <div className="grid size-7 place-items-center rounded-lg bg-blue-50 text-blue-600">
@@ -348,18 +419,18 @@ export function AnalyticsDashboardView({
               <h2 className="text-sm font-semibold text-foreground">
                 Invoiced vs collected
               </h2>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">
                 Monthly comparison of invoiced subscriptions vs settled funds (2026)
               </p>
             </div>
             <div className="flex items-center gap-3 text-[11px]">
-              <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-sm bg-slate-300" /> Billed
+              <span className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+                <span className="size-2.5 rounded-sm bg-slate-400" /> Billed
               </span>
               <span className="flex items-center gap-1.5 font-medium text-primary">
                 <span className="size-2.5 rounded-sm bg-primary" /> Realized
               </span>
-              <span className="flex items-center gap-1.5 text-rose-600">
+              <span className="flex items-center gap-1.5 font-medium text-rose-600">
                 <span className="size-2.5 rounded-sm bg-rose-500" /> Overdue
               </span>
             </div>
@@ -368,28 +439,16 @@ export function AnalyticsDashboardView({
             <div className="h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={monthlyWaterfall} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f1f3" />
-                  <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "#475569", fontWeight: 500 }} />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fontSize: 11, fill: "#64748b" }}
+                    tick={{ fontSize: 11, fill: "#475569", fontWeight: 500 }}
                     tickFormatter={(val) => `₹${Math.round(val / 1000)}k`}
                   />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--card)",
-                      borderColor: "var(--border)",
-                      borderRadius: "8px",
-                      fontSize: "12px",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
-                    }}
-                    formatter={(val: any, name: any) => [
-                      `₹${Number(val).toLocaleString("en-IN")}`,
-                      name === "collected" ? "Realized" : name === "billed" ? "Total Invoiced" : "Overdue",
-                    ]}
-                  />
-                  <Bar dataKey="billed" fill="#e2e8f0" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                  <Tooltip content={<CustomWaterfallTooltip />} />
+                  <Bar dataKey="billed" fill="#94a3b8" radius={[4, 4, 0, 0]} maxBarSize={28} />
                   <Bar dataKey="collected" fill="var(--primary)" radius={[4, 4, 0, 0]} maxBarSize={28} />
                   <Bar dataKey="overdue" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={28} />
                 </ComposedChart>
@@ -402,7 +461,7 @@ export function AnalyticsDashboardView({
         <div className="rounded-lg border border-border bg-card flex flex-col justify-between overflow-hidden">
           <div className="border-b border-border px-4 py-3">
             <h2 className="text-sm font-semibold text-foreground">Subscription revenue</h2>
-            <p className="text-[11px] text-muted-foreground">Revenue by plan</p>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400">Revenue by plan</p>
           </div>
           <div className="p-4 flex-1 flex flex-col justify-center space-y-4">
             <div className="h-[170px] w-full">
@@ -422,9 +481,7 @@ export function AnalyticsDashboardView({
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip
-                    formatter={(val: any) => [`₹${Number(val).toLocaleString("en-IN")}/mo`, "Revenue"]}
-                  />
+                  <Tooltip content={<CustomPieTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -435,13 +492,13 @@ export function AnalyticsDashboardView({
                   <div className="flex items-center gap-2">
                     <span className="size-2 rounded-full" style={{ backgroundColor: tier.color }} />
                     <span className="font-medium text-foreground">{tier.name}</span>
-                    <span className="text-[10px] text-muted-foreground">({tier.count} centers)</span>
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400 font-medium">({tier.count} centers)</span>
                   </div>
                   <div className="text-right">
                     <span className="font-semibold text-foreground">
                       ₹{tier.revenue.toLocaleString("en-IN")}/mo
                     </span>
-                    <span className="text-[10px] text-muted-foreground ml-1.5 font-normal">
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400 ml-1.5 font-medium">
                       ({tier.share}%)
                     </span>
                   </div>
@@ -451,7 +508,7 @@ export function AnalyticsDashboardView({
           </div>
 
           <div className="border-t border-border p-3 bg-muted/20 flex justify-between items-center text-xs">
-            <span className="text-muted-foreground">Average Rev / Center (ARPI):</span>
+            <span className="text-slate-700 dark:text-slate-300 font-medium">Average Rev / Center (ARPI):</span>
             <span className="font-bold text-primary">₹36,999/mo</span>
           </div>
         </div>

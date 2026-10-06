@@ -2,23 +2,14 @@
 
 import React, { useState, useTransition } from "react"
 import {
-  GraduationCap,
-  BookOpen,
-  Layers3,
-  Phone,
   ShieldCheck,
   Save,
   Plus,
   X,
-  IndianRupee,
-  Landmark,
-  Building2,
-  Mail,
-  User,
-  Sparkles,
   CheckCircle2,
-  AlertCircle,
-  Clock,
+  Lock,
+  Loader2,
+  RotateCcw,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -46,25 +37,25 @@ export function TeacherSettingsTab({ teacher }: TeacherSettingsTabProps) {
   const [isPending, startTransition] = useTransition()
 
   // Parse initial subjects, classes, and bio
-  let initialSubjects: string[] = ["Physics", "Mechanics"]
-  let initialClasses: string[] = ["Class 11", "Class 12", "Dropper JEE"]
-  let initialBio = "Senior Faculty with 8+ years experience coaching students for competitive examinations."
+  let parsedSubjects: string[] = ["Physics", "Mechanics"]
+  let parsedClasses: string[] = ["Class 11", "Class 12", "Dropper JEE"]
+  let parsedBio = "Senior Faculty with 8+ years experience coaching students for competitive examinations."
 
   try {
     if (teacher.subjects) {
       if (teacher.subjects.startsWith("{")) {
         const parsed = JSON.parse(teacher.subjects)
         if (Array.isArray(parsed.subjects) && parsed.subjects.length > 0) {
-          initialSubjects = parsed.subjects
+          parsedSubjects = parsed.subjects
         }
         if (Array.isArray(parsed.classes) && parsed.classes.length > 0) {
-          initialClasses = parsed.classes
+          parsedClasses = parsed.classes
         }
         if (parsed.bio) {
-          initialBio = parsed.bio
+          parsedBio = parsed.bio
         }
       } else {
-        initialSubjects = teacher.subjects
+        parsedSubjects = teacher.subjects
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean)
@@ -74,9 +65,17 @@ export function TeacherSettingsTab({ teacher }: TeacherSettingsTabProps) {
     // Keep fallback defaults
   }
 
-  const [subjects, setSubjects] = useState<string[]>(initialSubjects)
-  const [classes, setClasses] = useState<string[]>(initialClasses)
-  const [bio, setBio] = useState<string>(initialBio)
+  // Saved snapshot for dirty checking
+  const [savedSnapshot, setSavedSnapshot] = useState({
+    subjects: parsedSubjects,
+    classes: parsedClasses,
+    bio: parsedBio,
+  })
+
+  // Editable form state
+  const [subjects, setSubjects] = useState<string[]>(parsedSubjects)
+  const [classes, setClasses] = useState<string[]>(parsedClasses)
+  const [bio, setBio] = useState<string>(parsedBio)
 
   // Input states for adding new tags
   const [newSubjectInput, setNewSubjectInput] = useState("")
@@ -85,6 +84,12 @@ export function TeacherSettingsTab({ teacher }: TeacherSettingsTabProps) {
   // Phone state & OTP modal
   const [currentPhone, setCurrentPhone] = useState(teacher.phoneNo || "+91 98123 45678")
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false)
+
+  // Dirty state detection
+  const isDirty =
+    JSON.stringify(subjects) !== JSON.stringify(savedSnapshot.subjects) ||
+    JSON.stringify(classes) !== JSON.stringify(savedSnapshot.classes) ||
+    bio.trim() !== savedSnapshot.bio.trim()
 
   // Handlers for Subject tags
   const handleAddSubject = () => {
@@ -142,6 +147,15 @@ export function TeacherSettingsTab({ teacher }: TeacherSettingsTabProps) {
     setClasses(classes.filter((c) => c !== classToRemove))
   }
 
+  // Reset unsaved changes
+  const handleDiscardChanges = () => {
+    setSubjects(savedSnapshot.subjects)
+    setClasses(savedSnapshot.classes)
+    setBio(savedSnapshot.bio)
+    setNewSubjectInput("")
+    setNewClassInput("")
+  }
+
   // Save Academic Profile
   const handleSaveProfile = () => {
     if (subjects.length === 0) {
@@ -176,6 +190,11 @@ export function TeacherSettingsTab({ teacher }: TeacherSettingsTabProps) {
           variant: "destructive",
         })
       } else {
+        setSavedSnapshot({
+          subjects: [...subjects],
+          classes: [...classes],
+          bio: bio.trim(),
+        })
         toast({
           title: "Profile updated",
           description: res.message || "Academic subjects and classes updated successfully.",
@@ -185,170 +204,216 @@ export function TeacherSettingsTab({ teacher }: TeacherSettingsTabProps) {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6 max-w-4xl pb-12">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-1">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-foreground">
+          <h1 className="text-xl font-bold tracking-tight text-foreground">
             Faculty Profile & Settings
-          </h2>
+          </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Manage your academic specializations, classes taught, and verified mobile contact.
+            Manage your academic specializations, teaching cohorts, verified mobile contact, and institute credentials.
           </p>
         </div>
 
-        <Button
-          onClick={handleSaveProfile}
-          disabled={isPending}
-          className="rounded-xl h-10 px-5 text-xs font-semibold bg-primary hover:bg-primary-hover text-white shadow-xs cursor-pointer"
-        >
-          {isPending ? (
-            <>Saving...</>
-          ) : (
-            <>
-              <Save className="size-4 mr-2" />
-              Save academic profile
-            </>
+        <div className="flex items-center gap-2.5">
+          {isDirty && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleDiscardChanges}
+              disabled={isPending}
+              className="h-9 px-3 text-xs rounded-lg cursor-pointer"
+            >
+              <RotateCcw className="size-3 mr-1.5 text-muted-foreground" />
+              Discard
+            </Button>
           )}
-        </Button>
-      </div>
-
-      {/* SECTION 1: REGISTERED MOBILE NUMBER & OTP VERIFICATION */}
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-xs space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-            <Phone className="size-5" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-foreground">
-              Registered Mobile Number
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Used for 2-factor security alerts, salary slip SMS notifications, and institute communications
-            </p>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-xl border border-border bg-muted/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-foreground font-mono">
-                {currentPhone}
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                <CheckCircle2 className="size-3" />
-                Verified
-              </span>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Maximum 3 phone updates permitted per academic year with OTP verification.
-            </p>
-          </div>
 
           <Button
             type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setIsPhoneModalOpen(true)}
-            className="rounded-xl h-9 text-xs font-semibold border-border hover:bg-muted/40 cursor-pointer shrink-0"
+            onClick={handleSaveProfile}
+            disabled={isPending}
+            className="rounded-lg h-9 px-4 text-xs font-medium bg-primary hover:bg-primary-hover text-white shadow-xs cursor-pointer"
           >
-            <ShieldCheck className="size-3.5 mr-1.5 text-primary" />
-            Change mobile number
+            {isPending ? (
+              <>
+                <Loader2 className="size-3.5 mr-2 animate-spin" />
+                Saving changes...
+              </>
+            ) : (
+              <>
+                <Save className="size-3.5 mr-2" />
+                Save changes
+              </>
+            )}
           </Button>
         </div>
       </div>
 
-      {/* SECTION 2: ACADEMIC SPECIALIZATION & TAGS */}
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-xs space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-            <BookOpen className="size-5" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-foreground">
-              Subjects Taught
+      {/* Unified Professional Settings Container */}
+      <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden divide-y divide-border/60">
+        {/* SECTION 1: FACULTY IDENTITY */}
+        <div className="p-6 sm:p-7 flex flex-col md:flex-row md:items-start justify-between gap-6">
+          <div className="md:w-1/3 space-y-1">
+            <h3 className="text-sm font-semibold text-foreground">
+              Faculty Profile
             </h3>
-            <p className="text-xs text-muted-foreground">
-              Add or remove subjects and topics you instruct across institute batches
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Your registered credentials and official designation in the academy directory.
+            </p>
+          </div>
+
+          <div className="md:w-2/3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-foreground">
+                  {teacher.name}
+                </h4>
+                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border/70">
+                  Senior Faculty
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {teacher.email || "No email registered"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 2: CONTACT & SECURITY */}
+        <div className="p-6 sm:p-7 flex flex-col md:flex-row md:items-start justify-between gap-6">
+          <div className="md:w-1/3 space-y-1">
+            <h3 className="text-sm font-semibold text-foreground">
+              Mobile Contact & 2FA
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Primary contact used for multi-factor security alerts, salary slip SMS, and urgent notices.
+            </p>
+          </div>
+
+          <div className="md:w-2/3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg border border-border/80 bg-muted/20">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-sm font-semibold text-foreground font-mono">
+                    {currentPhone}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                    <CheckCircle2 className="size-3" />
+                    Verified
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Protected by 6-digit OTP verification. Maximum 3 updates permitted per academic year.
+                </p>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsPhoneModalOpen(true)}
+                className="h-8 rounded-lg text-xs font-medium border-border hover:bg-muted/60 shrink-0 cursor-pointer"
+              >
+                <ShieldCheck className="size-3.5 mr-1.5 text-muted-foreground" />
+                Change number
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 3: SUBJECTS TAUGHT */}
+        <div className="p-6 sm:p-7 flex flex-col md:flex-row md:items-start justify-between gap-6">
+          <div className="md:w-1/3 space-y-1">
+            <h3 className="text-sm font-semibold text-foreground">
+              Subjects & Disciplines
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Academic curriculum subjects you are accredited to instruct across student cohorts.
+            </p>
+          </div>
+
+          <div className="md:w-2/3 space-y-3">
+            <div className="flex flex-wrap gap-2 min-h-[38px] p-2.5 rounded-lg border border-border/80 bg-muted/20">
+              {subjects.map((sub) => (
+                <span
+                  key={sub}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-background text-foreground border border-border/90 shadow-2xs group"
+                >
+                  <span>{sub}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSubject(sub)}
+                    className="rounded p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                    title={`Remove ${sub}`}
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  value={newSubjectInput}
+                  onChange={(e) => setNewSubjectInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      handleAddSubject()
+                    }
+                  }}
+                  placeholder="e.g. Physics, Mechanics, Physical Chemistry..."
+                  className="h-9 rounded-lg text-xs pl-3 pr-16 bg-background"
+                />
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-mono pointer-events-none hidden sm:inline">
+                  ↵ Enter
+                </span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddSubject}
+                disabled={!newSubjectInput.trim()}
+                className="h-9 rounded-lg text-xs font-medium px-3 shrink-0 cursor-pointer"
+              >
+                <Plus className="size-3.5 mr-1" />
+                Add
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Add subjects using the input field above. Press Enter or click Add to attach.
             </p>
           </div>
         </div>
 
-        {/* Subjects Tag Manager */}
-        <div className="space-y-3 pt-1">
-          <div className="flex flex-wrap gap-2 min-h-[44px] p-3 rounded-xl border border-border bg-muted/10">
-            {subjects.map((sub) => (
-              <span
-                key={sub}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-primary text-white shadow-2xs group"
-              >
-                <span>{sub}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveSubject(sub)}
-                  className="rounded hover:bg-white/20 p-0.5 transition-colors cursor-pointer"
-                  title={`Remove ${sub}`}
-                >
-                  <X className="size-3" />
-                </button>
-              </span>
-            ))}
+        {/* SECTION 4: CLASSES & BATCHES TAUGHT */}
+        <div className="p-6 sm:p-7 flex flex-col md:flex-row md:items-start justify-between gap-6">
+          <div className="md:w-1/3 space-y-1">
+            <h3 className="text-sm font-semibold text-foreground">
+              Grade Levels & Batches
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Target academic tiers and competitive examination batches assigned to your schedule.
+            </p>
           </div>
 
-          {/* Add Subject Input */}
-          <div className="flex gap-2">
-            <Input
-              value={newSubjectInput}
-              onChange={(e) => setNewSubjectInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault()
-                  handleAddSubject()
-                }
-              }}
-              placeholder="e.g. Thermodynamics, Optics, Organic Chemistry, Mechanics..."
-              className="h-10 rounded-xl text-xs"
-            />
-            <Button
-              type="button"
-              onClick={handleAddSubject}
-              disabled={!newSubjectInput.trim()}
-              className="rounded-xl h-10 px-4 text-xs font-semibold bg-primary hover:bg-primary-hover text-white shrink-0 cursor-pointer"
-            >
-              <Plus className="size-3.5 mr-1" />
-              Add subject
-            </Button>
-          </div>
-        </div>
-
-        <div className="pt-4 border-t border-border">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="size-10 rounded-xl bg-blue-50 text-primary flex items-center justify-center">
-              <Layers3 className="size-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-foreground">
-                Classes & Batches Taught
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Configure grade levels and target competitive examination batches
-              </p>
-            </div>
-          </div>
-
-          {/* Classes Tag Manager */}
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-2 min-h-[44px] p-3 rounded-xl border border-border bg-muted/10">
+          <div className="md:w-2/3 space-y-3">
+            <div className="flex flex-wrap gap-2 min-h-[38px] p-2.5 rounded-lg border border-border/80 bg-muted/20">
               {classes.map((cls) => (
                 <span
                   key={cls}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow-2xs group"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-background text-foreground border border-border/90 shadow-2xs group"
                 >
                   <span>{cls}</span>
                   <button
                     type="button"
                     onClick={() => handleRemoveClass(cls)}
-                    className="rounded hover:bg-white/20 p-0.5 transition-colors cursor-pointer"
+                    className="rounded p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                     title={`Remove ${cls}`}
                   >
                     <X className="size-3" />
@@ -357,81 +422,148 @@ export function TeacherSettingsTab({ teacher }: TeacherSettingsTabProps) {
               ))}
             </div>
 
-            {/* Add Class Input */}
             <div className="flex gap-2">
-              <Input
-                value={newClassInput}
-                onChange={(e) => setNewClassInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault()
-                    handleAddClass()
-                  }
-                }}
-                placeholder="e.g. Class 11, Class 12, Repeater NEET, Foundation Batch..."
-                className="h-10 rounded-xl text-xs"
-              />
+              <div className="relative flex-1">
+                <Input
+                  value={newClassInput}
+                  onChange={(e) => setNewClassInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      handleAddClass()
+                    }
+                  }}
+                  placeholder="e.g. Class 11, Class 12, Repeater NEET, Foundation..."
+                  className="h-9 rounded-lg text-xs pl-3 pr-16 bg-background"
+                />
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-mono pointer-events-none hidden sm:inline">
+                  ↵ Enter
+                </span>
+              </div>
               <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={handleAddClass}
                 disabled={!newClassInput.trim()}
-                className="rounded-xl h-10 px-4 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 cursor-pointer"
+                className="h-9 rounded-lg text-xs font-medium px-3 shrink-0 cursor-pointer"
               >
                 <Plus className="size-3.5 mr-1" />
-                Add class
+                Add
               </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Define the academic grades or target entrance exam batches you instruct.
+            </p>
+          </div>
+        </div>
+
+        {/* SECTION 5: ACADEMIC BIO & CREDENTIALS */}
+        <div className="p-6 sm:p-7 flex flex-col md:flex-row md:items-start justify-between gap-6">
+          <div className="md:w-1/3 space-y-1">
+            <h3 className="text-sm font-semibold text-foreground">
+              Professional Summary
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Brief summary of pedagogical experience, university degrees, and competitive exam results.
+            </p>
+          </div>
+
+          <div className="md:w-2/3 space-y-2">
+            <Label className="text-xs font-medium text-foreground sr-only">
+              Academic Bio
+            </Label>
+            <Textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              rows={4}
+              placeholder="Detail your teaching experience, specialized pedagogy, and student mentorship achievements..."
+              className="rounded-lg text-xs leading-relaxed bg-background"
+            />
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
+              <span>Visible across faculty directory outlines and syllabus documents.</span>
+              <span className="font-mono text-[10px]">{bio.length}/600</span>
             </div>
           </div>
         </div>
 
-        {/* Faculty Bio / Specialization */}
-        <div className="pt-4 border-t border-border space-y-2">
-          <Label className="text-xs font-semibold text-foreground">
-            Academic Bio & Specialization
-          </Label>
-          <Textarea
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            rows={3}
-            placeholder="Describe your teaching pedagogy, exam achievements, and specializations..."
-            className="rounded-xl text-xs leading-relaxed"
-          />
-        </div>
-      </div>
-
-      {/* SECTION 3: SALARY & PAYOUT DETAILS (CONFIDENTIAL) */}
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-xs space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <Landmark className="size-5" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-foreground">
-              Salary & Wire Settlement Details
+        {/* SECTION 6: INSTITUTIONAL COMPENSATION & PAYROLL */}
+        <div className="p-6 sm:p-7 flex flex-col md:flex-row md:items-start justify-between gap-6">
+          <div className="md:w-1/3 space-y-1">
+            <h3 className="text-sm font-semibold text-foreground">
+              Payroll & Affiliation
             </h3>
-            <p className="text-xs text-muted-foreground">
-              Confidential payroll profile configured with your affiliated institute
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Employment affiliation and compensation parameters configured by the institute administration.
             </p>
+          </div>
+
+          <div className="md:w-2/3 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3.5 rounded-lg border border-border/80 bg-muted/20">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Affiliated Institute
+                </span>
+                <p className="text-xs font-semibold text-foreground mt-1">
+                  {teacher.instituteName || "Coaching Academy"}
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-lg border border-border/80 bg-muted/20">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Base Monthly Remuneration
+                </span>
+                <p className="text-xs font-semibold text-foreground font-mono mt-1">
+                  ₹{(teacher.salary || 65000).toLocaleString("en-IN")} / month
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground px-0.5">
+              <Lock className="size-3 text-muted-foreground shrink-0" />
+              <span>Contractual terms are managed by institute administration. For salary revisions, consult the institute admin.</span>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-          <div className="p-3.5 rounded-xl border border-border bg-muted/20">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase">
-              Affiliated Institute
-            </span>
-            <p className="text-xs font-bold text-foreground mt-0.5">
-              {teacher.instituteName || "Classly Coaching Institute"}
-            </p>
-          </div>
+        {/* BOTTOM ACTION BAR */}
+        <div className="px-6 py-4 sm:px-7 bg-muted/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">
+            Academic profile updates synchronize immediately across institute dashboards and syllabus cards.
+          </p>
 
-          <div className="p-3.5 rounded-xl border border-border bg-muted/20">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase">
-              Base Monthly Remuneration
-            </span>
-            <p className="text-xs font-bold text-emerald-600 mt-0.5">
-              ₹{(teacher.salary || 65000).toLocaleString("en-IN")} / month
-            </p>
+          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+            {isDirty && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleDiscardChanges}
+                disabled={isPending}
+                className="h-8 px-3 text-xs rounded-lg cursor-pointer"
+              >
+                Discard
+              </Button>
+            )}
+
+            <Button
+              type="button"
+              onClick={handleSaveProfile}
+              disabled={isPending}
+              className="rounded-lg h-8 px-4 text-xs font-medium bg-primary hover:bg-primary-hover text-white shadow-xs cursor-pointer"
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="size-3.5 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="size-3.5 mr-2" />
+                  Save changes
+                </>
+              )}
+            </Button>
           </div>
         </div>
       </div>

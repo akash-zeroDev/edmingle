@@ -9,12 +9,12 @@
     "upiVpa": "classly@okhdfcbank"
   },
   "razorpay": {
-    "keyId": "rzp_test_1DP5mmOlF5G5ag",
-    "keySecret": "masked_secret_key_configured",
-    "webhookSecret": "whsec_edmingle_platform_prod",
+    "keyId": "rzp_test_TkgeIIQtU6y1qU",
+    "keySecret": "jAN668KZ7jghmSbgYWTFeUa8",
+    "webhookSecret": "",
     "environment": "TEST",
     "isActive": true
   },
-  "updatedAt": "2026-10-05T09:30:00.000Z",
-  "updatedBy": "Super Admin"
+  "updatedAt": "2026-10-06T16:23:09.562Z",
+  "updatedBy": "Akash Kumar"
 }

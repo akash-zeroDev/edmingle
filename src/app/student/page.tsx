@@ -65,7 +65,31 @@ export default async function StudentDashboard() {
             location: "Connaught Place, New Delhi",
           }}
           batches={[]}
-          fees={[]}
+          fees={[
+            {
+              id: "fee_preview_q3",
+              amountTotal: 65000,
+              amountPaid: 25000,
+              dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+              status: "PARTIAL",
+              paidAt: null,
+              studentId: "std_preview_2026",
+              payments: [
+                {
+                  id: "pmt_preview_1",
+                  receiptNo: "REC-2026-784",
+                  amount: 25000,
+                  paymentMode: "UPI",
+                  transactionRef: "pay_sim_sample",
+                  notes: "Quarter 1 & 2 payment",
+                  paidAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+                  receivedBy: "Accounts Desk",
+                  feeId: "fee_preview_q3",
+                  studentId: "std_preview_2026",
+                },
+              ],
+            },
+          ]}
           attendance={[]}
           isPreview={true}
         />

@@ -33,7 +33,7 @@ export async function POST(req: Request) {
         "svix-id": svix_id!,
         "svix-timestamp": svix_timestamp!,
         "svix-signature": svix_signature!,
-      }) as { type: string; data: any }
+      }) as unknown as { type: string; data: any }
     } catch (err: any) {
       console.error("Error verifying webhook signature:", err.message)
       return new Response("Invalid webhook signature", { status: 400 })
@@ -223,10 +223,10 @@ export async function POST(req: Request) {
         data: { clerkUserId: null },
       })
 
-      // Unbind teacher clerkUserId
+      // Suspend teacher if Clerk user is deleted
       await prisma.teacher.updateMany({
         where: { clerkUserId },
-        data: { clerkUserId: null },
+        data: { status: "SUSPENDED" },
       })
 
       console.log(`[Clerk Webhook] Safely unbound records for deleted user ${clerkUserId}`)

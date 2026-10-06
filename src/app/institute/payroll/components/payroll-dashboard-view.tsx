@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { KpiGrid, KpiCard } from "@/components/ui/kpi-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CustomSelect } from "@/components/ui/custom-select"
+import { useToast } from "@/hooks/use-toast"
 import { PayrollLedgerTable } from "./payroll-ledger-table"
 import {
   DisburseSalaryModal,
@@ -51,6 +52,7 @@ export function PayrollDashboardView({
   teachers,
 }: PayrollDashboardViewProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
 
   // Modal states
@@ -122,7 +124,11 @@ export function PayrollDashboardView({
       paidAt: payout.paidAt,
       instituteName,
     })
-    setSlipModalOpen(true)
+    // Do not abruptly open the dialogue box: show clean toast notification
+    toast({
+      title: "Salary Disbursed Successfully",
+      description: `Payment of ₹${payout.netAmount.toLocaleString("en-IN")} recorded for ${payout.teacherName}.`,
+    })
   }
 
   const disbursedPercent = kpiData.totalBudget > 0

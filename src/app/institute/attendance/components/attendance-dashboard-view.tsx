@@ -68,12 +68,12 @@ export function AttendanceDashboardView({
   const { kpi, batchesStatus, todayAbsentees, defaulters } = initialData
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto w-full space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
               Attendance
             </h1>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-light text-primary border border-primary/20">

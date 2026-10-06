@@ -16,6 +16,7 @@ import {
   Receipt,
   CheckCircle2,
 } from "lucide-react"
+import { printOfficialSalaryVoucher } from "@/lib/print-document"
 
 export interface SalarySlipData {
   voucherNo: string
@@ -55,20 +56,46 @@ export function SalarySlipModal({
     year: "numeric",
   })
 
-  const formattedDate = slip.paidAt
+  const formattedDateTime = slip.paidAt
     ? new Date(slip.paidAt).toLocaleDateString("en-IN", {
         day: "numeric",
         month: "short",
         year: "numeric",
+      }) +
+      ", " +
+      new Date(slip.paidAt).toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
       })
     : new Date().toLocaleDateString("en-IN", {
         day: "numeric",
         month: "short",
         year: "numeric",
+      }) +
+      ", " +
+      new Date().toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
       })
 
   const handlePrint = () => {
-    window.print()
+    printOfficialSalaryVoucher({
+      voucherNo: slip.voucherNo,
+      teacherName: slip.teacherName,
+      teacherPhone: slip.teacherPhone,
+      month: slip.month,
+      year: slip.year,
+      baseSalary: slip.baseSalary,
+      bonus: slip.bonus,
+      deductions: slip.deductions,
+      netAmount: slip.netAmount,
+      paymentMode: slip.paymentMode,
+      transactionRef: slip.transactionRef,
+      paidAt: slip.paidAt,
+      instituteName: slip.instituteName || instituteName,
+    })
   }
 
   const cleanPhone = (slip.teacherPhone || "").replace(/\D/g, "")
@@ -88,10 +115,15 @@ export function SalarySlipModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl bg-card border border-border p-6 rounded-2xl shadow-xl flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="flex items-start justify-between pb-2 border-b border-border">
+        <div className="flex items-start justify-between pb-3 border-b border-border pr-8">
           <div className="space-y-1">
-            <div className="size-10 rounded-xl bg-primary-light text-primary flex items-center justify-center mb-1">
-              <Receipt className="size-5" />
+            <div className="flex items-center gap-2 mb-1">
+              <div className="size-9 rounded-xl bg-primary-light text-primary flex items-center justify-center">
+                <Receipt className="size-4.5" />
+              </div>
+              <span className="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                DISBURSED
+              </span>
             </div>
             <DialogTitle className="text-lg font-bold text-foreground">
               Salary payslip
@@ -100,9 +132,6 @@ export function SalarySlipModal({
               Voucher #{slip.voucherNo} · {monthName}
             </DialogDescription>
           </div>
-          <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            DISBURSED
-          </span>
         </div>
 
         {/* Scrollable Printable Slip Container */}
@@ -141,9 +170,9 @@ export function SalarySlipModal({
               </div>
               <div>
                 <span className="text-[10px] text-muted-foreground uppercase font-medium">
-                  Disbursed date
+                  Disbursed Date & Time
                 </span>
-                <div className="font-medium text-foreground">{formattedDate}</div>
+                <div className="font-medium text-foreground">{formattedDateTime}</div>
               </div>
               <div>
                 <span className="text-[10px] text-muted-foreground uppercase font-medium">

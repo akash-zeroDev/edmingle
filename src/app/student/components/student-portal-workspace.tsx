@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import {
   GraduationCap,
   BookOpen,
@@ -15,6 +15,7 @@ import {
   Phone,
   Mail,
   MapPin,
+  ChevronLeft,
   ChevronRight,
   Download,
   Info,
@@ -25,6 +26,7 @@ import {
   Globe,
   Settings,
   Sparkles,
+  Loader2,
 } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -35,6 +37,8 @@ import { cn } from "@/lib/utils"
 import type { BatchAnnouncementItem } from "@/actions/announcement"
 import { PhoneChangeModal } from "@/components/settings/phone-change-modal"
 import { FeeReceiptModal, type ReceiptData } from "@/app/institute/fees/components/fee-receipt-modal"
+import { createFeePaymentOrder, verifyAndRecordRazorpayPayment } from "@/actions/razorpay"
+import { RazorpayTestModal } from "@/components/payments/razorpay-test-modal"
 
 interface StudentPortalWorkspaceProps {
   student: any
@@ -66,6 +70,208 @@ export function StudentPortalWorkspace({
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
   const [activeReceipt, setActiveReceipt] = useState<ReceiptData | null>(null)
 
+  // Razorpay payment state
+  const [currentFees, setCurrentFees] = useState(fees)
+  const [isPaying, setIsPaying] = useState(false)
+  const [simModalOpen, setSimModalOpen] = useState(false)
+  const [simOrderData, setSimOrderData] = useState<{
+    orderId: string
+    amount: number
+    currency?: string
+    studentName?: string
+    phone?: string
+    feeId?: string
+    rawAmount: number
+  } | null>(null)
+
+  const loadRazorpayScript = () => {
+    return new Promise<boolean>((resolve) => {
+      if (typeof window !== "undefined" && (window as any).Razorpay) {
+        resolve(true)
+        return
+      }
+      const script = document.createElement("script")
+      script.src = "https://checkout.razorpay.com/v1/checkout.js"
+      script.onload = () => resolve(true)
+      script.onerror = () => resolve(false)
+      document.body.appendChild(script)
+    })
+  }
+
+  const handlePaymentSuccess = (recordRes: any, amount: number, feeId?: string, paymentId?: string) => {
+    const newPayment = {
+      id: recordRes.payment?.id || `pmt_${Date.now()}`,
+      receiptNo: recordRes.receiptNo,
+      amount,
+      paymentMode: "UPI",
+      transactionRef: paymentId || "pay_razorpay",
+      paidAt: new Date().toISOString(),
+      receivedBy: "Razorpay Gateway",
+    }
+
+    setCurrentFees((prev) => {
+      if (prev.length === 0) {
+        return [
+          {
+            id: feeId || "fee_paid",
+            amountTotal: amount,
+            amountPaid: amount,
+            status: "PAID",
+            dueDate: new Date(),
+            paidAt: new Date(),
+            payments: [newPayment],
+          },
+        ]
+      }
+      return prev.map((f) => {
+        if (!feeId || f.id === feeId) {
+          const newPaid = (f.amountPaid || 0) + amount
+          return {
+            ...f,
+            amountPaid: newPaid,
+            status: newPaid >= f.amountTotal ? "PAID" : "PARTIAL",
+            paidAt: new Date(),
+            payments: [newPayment, ...(f.payments || [])],
+          }
+        }
+        return f
+      })
+    })
+
+    const receiptObj: ReceiptData = {
+      receiptNo: recordRes.receiptNo,
+      studentName: student?.name || "Student",
+      batchName: displayBatches[0]
+        ? `${displayBatches[0].className} - ${displayBatches[0].subject}`
+        : "Coaching Batch",
+      amount,
+      paymentMode: "UPI",
+      remainingBalance: 0,
+      paidAt: new Date().toISOString(),
+      cashierName: "Razorpay Gateway",
+      instituteName: institute?.name || "Classly Coaching Institute",
+    }
+
+    setActiveReceipt(receiptObj)
+    setReceiptModalOpen(true)
+
+    toast({
+      title: "Payment Successful 🎉",
+      description: `Receipt ${recordRes.receiptNo} generated. Fee status updated to PAID!`,
+    })
+  }
+
+  const handlePayFee = async (amount: number, feeId?: string) => {
+    try {
+      setIsPaying(true)
+      toast({
+        title: "Opening payment gateway",
+        description: "Connecting to secure payment gateway...",
+      })
+
+      const res = await createFeePaymentOrder({
+        feeId,
+        amount,
+        studentId: student?.id,
+      })
+
+      if (!res.success) {
+        toast({
+          variant: "destructive",
+          title: "Payment Error",
+          description: res.error || "Unable to initialize payment session.",
+        })
+        setIsPaying(false)
+        return
+      }
+
+      if (res.isSimulated) {
+        setSimOrderData({
+          orderId: res.orderId,
+          amount: res.amount,
+          studentName: student?.name,
+          phone: currentPhone,
+          feeId,
+          rawAmount: amount,
+        })
+        setSimModalOpen(true)
+        setIsPaying(false)
+        return
+      }
+
+      const scriptReady = await loadRazorpayScript()
+      if (!scriptReady) {
+        toast({
+          variant: "destructive",
+          title: "Network Error",
+          description: "Could not load Razorpay checkout script. Check your internet connection.",
+        })
+        setIsPaying(false)
+        return
+      }
+
+      const options = {
+        key: res.keyId,
+        amount: res.amount,
+        currency: res.currency || "INR",
+        name: institute?.name || "Classly Coaching Institute",
+        description: "Tuition Fee Payment",
+        order_id: res.orderId,
+        prefill: {
+          name: student?.name || "Student",
+          email: student?.email || "student@example.com",
+          contact: currentPhone,
+        },
+        theme: {
+          color: "#1d4ed8",
+        },
+        handler: async (paymentResp: any) => {
+          toast({
+            title: "Verifying payment",
+            description: "Confirming transaction with bank...",
+          })
+
+          const recordRes = await verifyAndRecordRazorpayPayment({
+            feeId,
+            studentId: student?.id,
+            amount,
+            razorpayOrderId: paymentResp.razorpay_order_id,
+            razorpayPaymentId: paymentResp.razorpay_payment_id,
+            razorpaySignature: paymentResp.razorpay_signature,
+            isSimulated: false,
+          })
+
+          if (recordRes.success) {
+            handlePaymentSuccess(recordRes, amount, feeId, paymentResp.razorpay_payment_id)
+          } else {
+            toast({
+              variant: "destructive",
+              title: "Verification Failed",
+              description: recordRes.error || "Unable to confirm payment record.",
+            })
+          }
+          setIsPaying(false)
+        },
+        modal: {
+          ondismiss: () => {
+            setIsPaying(false)
+          },
+        },
+      }
+
+      const rzp = new (window as any).Razorpay(options)
+      rzp.open()
+    } catch (err: any) {
+      console.error("Payment error:", err)
+      toast({
+        variant: "destructive",
+        title: "Payment Error",
+        description: err?.message || "Failed to launch payment checkout.",
+      })
+      setIsPaying(false)
+    }
+  }
+
   // Notification toggles
   const [notifyLectures, setNotifyLectures] = useState(true)
   const [notifyAttendance, setNotifyAttendance] = useState(true)
@@ -95,6 +301,17 @@ export function StudentPortalWorkspace({
   const [selectedBatchId, setSelectedBatchId] = useState<string>("ALL")
   const [noticeFilter, setNoticeFilter] = useState<"ALL" | "ADMIN" | "FACULTY">("ALL")
   const [noticeSearch, setNoticeSearch] = useState("")
+
+  const batchesScrollRef = useRef<HTMLDivElement>(null)
+
+  const scrollBatches = (direction: "left" | "right") => {
+    if (!batchesScrollRef.current) return
+    const scrollAmount = 360
+    batchesScrollRef.current.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    })
+  }
 
   const adminNoticesCount = useMemo(
     () => announcements.filter((a) => a.authorRole === "ADMIN").length,
@@ -142,7 +359,7 @@ export function StudentPortalWorkspace({
   // Extract all payment receipts
   const receiptList = useMemo<ReceiptData[]>(() => {
     const list: ReceiptData[] = []
-    fees.forEach((f) => {
+    currentFees.forEach((f) => {
       f.payments?.forEach((p: any) => {
         list.push({
           receiptNo: p.receiptNo,
@@ -175,11 +392,11 @@ export function StudentPortalWorkspace({
       })
     }
     return list
-  }, [fees, student.name, displayBatches, institute?.name])
+  }, [currentFees, student.name, displayBatches, institute?.name])
 
   // Fee calculation
-  const totalFeeDue = fees.reduce(
-    (acc, f) => acc + (f.amountTotal - (f.amountPaid || 0)),
+  const totalFeeDue = currentFees.reduce(
+    (acc, f) => acc + Math.max(0, (f.amountTotal || 0) - (f.amountPaid || 0)),
     0
   )
   const isFeeClear = totalFeeDue === 0
@@ -248,36 +465,6 @@ export function StudentPortalWorkspace({
               </div>
             </div>
           </div>
-
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setActiveTab("fees")
-                toast({
-                  title: "Fees",
-                  description: isFeeClear
-                    ? "All fee installments are paid."
-                    : "Outstanding dues found.",
-                })
-              }}
-              className="rounded-xl h-10 px-4 text-xs font-semibold border-[#e7e9ed] hover:bg-[#fafbfc] cursor-pointer"
-            >
-              <IndianRupee className="size-3.5 mr-1.5 text-primary" />
-              {isFeeClear ? "Receipts" : "Fees"}
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                setActiveTab("announcements")
-              }}
-              className="rounded-xl h-10 px-4 text-xs font-semibold bg-primary hover:bg-primary-hover text-white shadow-xs cursor-pointer"
-            >
-              <Megaphone className="size-3.5 mr-1.5" />
-              Announcements
-            </Button>
-          </div>
         </div>
       </div>
 
@@ -343,8 +530,8 @@ export function StudentPortalWorkspace({
       {/* Main Tabbed Workspace */}
       <div className="rounded-2xl border border-[#e7e9ed] bg-white shadow-xs overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="border-b border-[#e7e9ed] px-6 bg-[#fafbfc]">
-            <TabsList className="h-12 gap-6 bg-transparent p-0">
+          <div className="border-b border-[#e7e9ed] px-6 bg-[#fafbfc] overflow-x-auto custom-scrollbar-x">
+            <TabsList className="h-12 gap-6 bg-transparent p-0 min-w-max">
               <TabsTrigger value="batches" className="gap-2 pb-3.5 pt-3">
                 <BookOpen className="size-4" />
                 <span>Batches</span>
@@ -375,61 +562,105 @@ export function StudentPortalWorkspace({
           </div>
 
           {/* TAB 1: MY BATCHES */}
-          <TabsContent value="batches" className="p-6 space-y-4">
+          <TabsContent value="batches" className="p-6 space-y-4 min-w-0">
             <div className="flex items-center justify-between mb-2">
-              <div>
+              <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-[#15171b]">
                   Batches
                 </h3>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold border border-slate-200">
+                  {displayBatches.length} {displayBatches.length === 1 ? "batch" : "batches"}
+                </span>
               </div>
+
+              {displayBatches.length > 2 && (
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => scrollBatches("left")}
+                    className="size-7 p-0 rounded-lg border-border hover:bg-slate-100 cursor-pointer"
+                    aria-label="Scroll left"
+                  >
+                    <ChevronLeft className="size-4 text-slate-600" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => scrollBatches("right")}
+                    className="size-7 p-0 rounded-lg border-border hover:bg-slate-100 cursor-pointer"
+                    aria-label="Scroll right"
+                  >
+                    <ChevronRight className="size-4 text-slate-600" />
+                  </Button>
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {displayBatches.map((batch: any) => (
-                <div
-                  key={batch.id}
-                  className="p-5 rounded-2xl border border-[#e7e9ed] bg-[#f8fafc] hover:border-primary/40 hover:bg-white transition-all space-y-3 cursor-pointer group"
-                  onClick={() => {
-                    toast({
-                      title: `${batch.className} - ${batch.subject}`,
-                      description: `Timing: ${batch.timing || "Flexible"} | Teacher: ${batch.teacher?.name || "Unassigned"}`,
-                    })
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-primary border border-blue-200">
-                      {batch.subject}
-                    </span>
-                    <span className="text-xs font-semibold text-[#5e6b63]">
-                      {batch.className}
-                    </span>
-                  </div>
-
-                  <div>
-                    <h4 className="text-sm font-bold text-[#15171b] group-hover:text-primary transition-colors">
-                      {batch.batchName || `${batch.className} · ${batch.subject}`}
-                    </h4>
-                    <div className="flex items-center gap-1.5 text-xs text-[#5e6b63] mt-1">
-                      <Clock className="size-3.5 text-muted-foreground" />
-                      <span>{batch.timing || "Schedule"}</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-[#e2e8f0] flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="size-6 rounded-full bg-primary-light text-primary font-bold text-[10px] flex items-center justify-center">
-                        {(batch.teacher?.name || "T").substring(0, 2).toUpperCase()}
-                      </div>
-                      <span className="font-medium text-[#1a201c]">
-                        {batch.teacher?.name || "Teacher"}
+            {/* Horizontally scrollable row with custom smooth scrollbar */}
+            <div
+              ref={batchesScrollRef}
+              className="w-full min-w-0 custom-scrollbar-x pb-4 pt-1"
+            >
+              <div
+                className={cn(
+                  "flex items-stretch gap-4",
+                  displayBatches.length === 1 ? "max-w-md w-full" : "min-w-max"
+                )}
+              >
+                {displayBatches.map((batch: any) => (
+                  <div
+                    key={batch.id}
+                    className={cn(
+                      "p-5 rounded-2xl border border-[#e7e9ed] bg-[#f8fafc] hover:border-primary/40 hover:bg-white hover:shadow-xs transition-all space-y-3 cursor-pointer group flex flex-col justify-between shrink-0",
+                      displayBatches.length === 1
+                        ? "w-full"
+                        : "w-[300px] sm:w-[340px] md:w-[360px]"
+                    )}
+                    onClick={() => {
+                      toast({
+                        title: `${batch.className} - ${batch.subject}`,
+                        description: `Timing: ${batch.timing || "Flexible"} | Teacher: ${batch.teacher?.name || "Unassigned"}`,
+                      })
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-primary border border-blue-200 shrink-0 truncate max-w-[160px]">
+                        {batch.subject}
+                      </span>
+                      <span className="text-xs font-semibold text-[#5e6b63] shrink-0">
+                        {batch.className}
                       </span>
                     </div>
-                    <span className="text-[11px] text-primary font-semibold group-hover:underline">
-                      View details
-                    </span>
+
+                    <div className="min-w-0 space-y-1">
+                      <h4 className="text-sm font-bold text-[#15171b] group-hover:text-primary transition-colors truncate">
+                        {batch.batchName || `${batch.className} · ${batch.subject}`}
+                      </h4>
+                      <div className="flex items-center gap-1.5 text-xs text-[#5e6b63]">
+                        <Clock className="size-3.5 text-muted-foreground shrink-0" />
+                        <span className="truncate">{batch.timing || "Schedule"}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-[#e2e8f0] flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="size-6 rounded-full bg-primary-light text-primary font-bold text-[10px] flex items-center justify-center shrink-0">
+                          {(batch.teacher?.name || "T").substring(0, 2).toUpperCase()}
+                        </div>
+                        <span className="font-medium text-[#1a201c] truncate max-w-[150px]">
+                          {batch.teacher?.name || "Teacher"}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-primary font-semibold group-hover:underline shrink-0">
+                        View details
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </TabsContent>
 
@@ -516,69 +747,120 @@ export function StudentPortalWorkspace({
             <div className="flex items-center justify-between mb-2">
               <div>
                 <h3 className="text-sm font-bold text-[#15171b]">
-                  Fees
+                  Tuition Fees & Invoices
                 </h3>
+                <p className="text-xs text-muted-foreground">
+                  Track fee installments, settle pending dues via Razorpay, and download receipts
+                </p>
               </div>
             </div>
 
             <div className="space-y-3">
-              <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="size-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                    <CheckCircle2 className="size-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-emerald-950">
-                      Tuition fee (Quarter 1 & 2)
+              {/* If all fees are clear */}
+              {isFeeClear ? (
+                <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="size-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                      <CheckCircle2 className="size-6" />
                     </div>
-                    <div className="text-[11px] text-emerald-700">
-                      Paid on 15 Jul 2026
+                    <div>
+                      <div className="text-xs font-bold text-emerald-950">
+                        All Tuition Fees Cleared
+                      </div>
+                      <div className="text-[11px] text-emerald-700">
+                        No outstanding dues for the current academic session.
+                      </div>
                     </div>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (receiptList.length > 0) {
+                        setActiveReceipt(receiptList[0])
+                        setReceiptModalOpen(true)
+                      }
+                    }}
+                    className="rounded-xl h-8 px-3 text-xs font-semibold bg-white border-emerald-300 text-emerald-800 hover:bg-emerald-50 cursor-pointer"
+                  >
+                    <Download className="size-3 mr-1" />
+                    View latest receipt
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    toast({
-                      title: "Receipt downloaded",
-                      description: "Receipt REC-2026-784 saved.",
-                    })
-                  }}
-                  className="rounded-xl h-8 px-3 text-xs font-semibold bg-white border-emerald-300 text-emerald-800 hover:bg-emerald-50 cursor-pointer"
-                >
-                  <Download className="size-3 mr-1" />
-                  Download receipt
-                </Button>
-              </div>
+              ) : (
+                /* Pending Installment Card */
+                <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="size-10 rounded-xl bg-blue-100 text-primary flex items-center justify-center">
+                      <IndianRupee className="size-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-blue-950">
+                        Tuition fee (Quarter 3)
+                      </div>
+                      <div className="text-[11px] text-blue-700">
+                        Due 15 Oct 2026 · Pending installment
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={isPaying}
+                    onClick={() => handlePayFee(totalFeeDue, currentFees[0]?.id)}
+                    className="rounded-xl h-8 px-4 text-xs font-semibold bg-primary hover:bg-primary-hover text-white cursor-pointer gap-1.5"
+                  >
+                    {isPaying ? (
+                      <>
+                        <Loader2 className="size-3.5 animate-spin" />
+                        <span>Processing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Pay ₹{totalFeeDue.toLocaleString("en-IN")}</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
 
-              <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="size-9 rounded-xl bg-blue-100 text-primary flex items-center justify-center">
-                    <IndianRupee className="size-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-blue-950">
-                      Tuition fee (Quarter 3)
-                    </div>
-                    <div className="text-[11px] text-blue-700">
-                      Due 15 Oct 2026
-                    </div>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    toast({
-                      title: "Payment gateway",
-                      description: "Opening payment gateway...",
-                    })
-                  }}
-                  className="rounded-xl h-8 px-3 text-xs font-semibold bg-primary hover:bg-primary-hover text-white cursor-pointer"
+              {/* Settled installments list if any payments exist */}
+              {receiptList.map((rcpt, idx) => (
+                <div
+                  key={rcpt.receiptNo || idx}
+                  className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
                 >
-                  Pay ₹40,000
-                </Button>
-              </div>
+                  <div className="flex items-center gap-3">
+                    <div className="size-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                      <CheckCircle2 className="size-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-emerald-950">
+                        Tuition Payment · {rcpt.receiptNo}
+                      </div>
+                      <div className="text-[11px] text-emerald-700">
+                        Paid ₹{rcpt.amount.toLocaleString("en-IN")} via {rcpt.paymentMode} on{" "}
+                        {new Date(rcpt.paidAt || Date.now()).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setActiveReceipt(rcpt)
+                      setReceiptModalOpen(true)
+                    }}
+                    className="rounded-xl h-8 px-3 text-xs font-semibold bg-white border-emerald-300 text-emerald-800 hover:bg-emerald-50 cursor-pointer"
+                  >
+                    <Download className="size-3 mr-1" />
+                    View receipt
+                  </Button>
+                </div>
+              ))}
             </div>
           </TabsContent>
 
@@ -646,7 +928,7 @@ export function StudentPortalWorkspace({
                     onClick={() => setSelectedBatchId("ALL")}
                     className="text-[11px] text-primary hover:underline font-semibold cursor-pointer"
                   >
-                    All batches
+                    Show all
                   </button>
                 )}
               </div>
@@ -663,7 +945,7 @@ export function StudentPortalWorkspace({
                   )}
                 >
                   <Layers3 className="size-3.5" />
-                  All batches
+                  All
                   <span
                     className={cn(
                       "text-[10px] px-1.5 py-0.2 rounded-full font-bold",
@@ -685,7 +967,7 @@ export function StudentPortalWorkspace({
                   )}
                 >
                   <Globe className="size-3.5" />
-                  All batches
+                  Institute-wide
                   <span
                     className={cn(
                       "text-[10px] px-1.5 py-0.2 rounded-full font-bold",
@@ -1003,7 +1285,9 @@ export function StudentPortalWorkspace({
                           </span>
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
-                          Paid: ₹{r.amount.toLocaleString("en-IN")} · {r.batchName}
+                          Paid: ₹{r.amount.toLocaleString("en-IN")}
+                          {r.paidAt ? ` · ${new Date(r.paidAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}, ${new Date(r.paidAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}` : ""}
+                          {` · ${r.batchName}`}
                         </p>
                       </div>
                     </div>
@@ -1100,6 +1384,37 @@ export function StudentPortalWorkspace({
         onOpenChange={setReceiptModalOpen}
         receipt={activeReceipt}
         instituteName={institute?.name || "Classly Coaching Institute"}
+      />
+
+      {/* Razorpay Sandbox Test Checkout Modal */}
+      <RazorpayTestModal
+        open={simModalOpen}
+        onOpenChange={setSimModalOpen}
+        order={simOrderData}
+        onSuccess={async (details) => {
+          const recordRes = await verifyAndRecordRazorpayPayment({
+            feeId: simOrderData?.feeId,
+            studentId: student?.id,
+            amount: simOrderData?.rawAmount || 40000,
+            razorpayOrderId: details.razorpayOrderId,
+            razorpayPaymentId: details.razorpayPaymentId,
+            isSimulated: true,
+          })
+          if (recordRes.success) {
+            handlePaymentSuccess(
+              recordRes,
+              simOrderData?.rawAmount || 40000,
+              simOrderData?.feeId,
+              details.razorpayPaymentId
+            )
+          } else {
+            toast({
+              variant: "destructive",
+              title: "Payment record error",
+              description: recordRes.error || "Unable to save payment record.",
+            })
+          }
+        }}
       />
     </div>
   )

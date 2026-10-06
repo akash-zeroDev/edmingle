@@ -438,7 +438,7 @@ export function StudentView({
                 <div key={pmt.id} className="px-3.5 py-2.5">
                   <p className="font-semibold text-emerald-700">Fee payment of ₹{pmt.amount.toLocaleString("en-IN")} received</p>
                   <p className="mt-0.5 text-muted-foreground">
-                    {new Date(pmt.paidAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} · Mode: {pmt.paymentMode} ({pmt.receiptNo})
+                    {new Date(pmt.paidAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}, {new Date(pmt.paidAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })} · Mode: {pmt.paymentMode} ({pmt.receiptNo})
                   </p>
                 </div>
               ))}

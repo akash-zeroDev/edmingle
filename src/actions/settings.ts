@@ -18,7 +18,7 @@ import {
 // 1. ZOD SCHEMAS WITH STRICT SECURITY CHECKS
 // ==========================================
 
-export const superAdminBankingSchema = z
+const superAdminBankingSchema = z
   .object({
     accountHolderName: z
       .string()
@@ -50,7 +50,7 @@ export const superAdminBankingSchema = z
       .min(2, "Branch city/name must be at least 2 characters")
       .max(100),
     accountType: z.enum(["CURRENT", "SAVINGS"], {
-      errorMap: () => ({ message: "Account type must be CURRENT or SAVINGS" }),
+      message: "Account type must be CURRENT or SAVINGS",
     }),
     upiVpa: z
       .string()
@@ -64,7 +64,7 @@ export const superAdminBankingSchema = z
     path: ["confirmAccountNumber"],
   })
 
-export const razorpaySettingsSchema = z.object({
+const razorpaySettingsSchema = z.object({
   keyId: z
     .string()
     .trim()
@@ -78,7 +78,7 @@ export const razorpaySettingsSchema = z.object({
   isActive: z.boolean().default(true),
 })
 
-export const instituteSettingsSchema = z.object({
+const instituteSettingsSchema = z.object({
   name: z
     .string()
     .trim()
@@ -123,7 +123,7 @@ export const instituteSettingsSchema = z.object({
   sendFeeReminderAlert: z.boolean().default(true),
 })
 
-export const teacherAcademicProfileSchema = z.object({
+const teacherAcademicProfileSchema = z.object({
   subjects: z
     .array(z.string().trim().min(1, "Subject cannot be empty"))
     .min(1, "Please specify at least one subject taught"),
@@ -690,8 +690,8 @@ export async function requestPhoneChangeOtp({
 
     // Check quota and authorization
     const quota = await getPhoneChangeQuota(role)
-    if (!quota.success) {
-      return { success: false, error: quota.error }
+    if (!quota.success || quota.remainingQuota === undefined) {
+      return { success: false, error: quota.error || "Unable to determine remaining quota" }
     }
 
     if (quota.remainingQuota <= 0) {
@@ -729,14 +729,6 @@ export async function requestPhoneChangeOtp({
       role,
       expiresAt,
       attempts: 0,
-    })
-
-    // Dispatch notification
-    await dispatchNotice({
-      channel: "SMS",
-      recipient: formattedNewPhone,
-      title: "Classly Mobile Verification",
-      message: `Your Classly verification code is ${otp}. Valid for 5 minutes. Do not share this OTP with anyone.`,
     })
 
     console.log(`[AUTH OTP DISPATCH] Sent 6-digit OTP ${otp} to ${formattedNewPhone} for user ${user.id}`)

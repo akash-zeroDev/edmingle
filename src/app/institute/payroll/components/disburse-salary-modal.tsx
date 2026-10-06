@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef, useMemo } from "react"
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CustomSelect } from "@/components/ui/custom-select"
+import { cn } from "@/lib/utils"
 import {
   Banknote,
   Building2,
@@ -23,6 +24,8 @@ import {
   Loader2,
   Plus,
   Minus,
+  ChevronDown,
+  Check,
 } from "lucide-react"
 import { disburseTeacherSalary } from "@/actions/payroll"
 import { useToast } from "@/hooks/use-toast"
@@ -61,6 +64,171 @@ export interface DisburseSalaryModalProps {
   year: number
   instituteName?: string
   onDisbursementSuccess?: (payout: any) => void
+}
+
+function TeacherTypeAndSelectDropdown({
+  teachers,
+  selectedTeacherId,
+  onSelect,
+}: {
+  teachers: TeacherPayrollItem[]
+  selectedTeacherId: string
+  onSelect: (teacherId: string) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const selectedTeacher = useMemo(
+    () => teachers.find((t) => t.id === selectedTeacherId),
+    [teachers, selectedTeacherId]
+  )
+
+  // Sync displayed search term with selected teacher name
+  useEffect(() => {
+    if (selectedTeacher) {
+      setSearchTerm(selectedTeacher.name)
+    } else {
+      setSearchTerm("")
+    }
+  }, [selectedTeacher])
+
+  // Revert search term to valid selected teacher on blur / click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+        if (selectedTeacher) {
+          setSearchTerm(selectedTeacher.name)
+        } else {
+          setSearchTerm("")
+        }
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [selectedTeacher])
+
+  const filteredTeachers = useMemo(() => {
+    if (!searchTerm.trim()) return teachers
+    const q = searchTerm.toLowerCase().trim()
+    return teachers.filter((t) => {
+      const matchName = t.name.toLowerCase().includes(q)
+      const matchSubject = t.subjects ? t.subjects.toLowerCase().includes(q) : false
+      const matchBatch = t.batchNames ? t.batchNames.some((b) => b.toLowerCase().includes(q)) : false
+      return matchName || matchSubject || matchBatch
+    })
+  }, [teachers, searchTerm])
+
+  const handleSelectOption = (teacher: TeacherPayrollItem) => {
+    onSelect(teacher.id)
+    setSearchTerm(teacher.name)
+    setIsOpen(false)
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value)
+    if (!isOpen) setIsOpen(true)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      setIsOpen(false)
+      if (selectedTeacher) setSearchTerm(selectedTeacher.name)
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      if (filteredTeachers.length > 0) {
+        handleSelectOption(filteredTeachers[0])
+      }
+    } else if (e.key === "ArrowDown" && !isOpen) {
+      setIsOpen(true)
+    }
+  }
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={searchTerm}
+          onChange={handleInputChange}
+          onFocus={() => setIsOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder="Type to search and select faculty..."
+          className="w-full h-10 pl-3.5 pr-10 text-xs rounded-xl border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setIsOpen((prev) => !prev)
+            inputRef.current?.focus()
+          }}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1"
+          tabIndex={-1}
+        >
+          <ChevronDown
+            className={cn(
+              "size-4 transition-transform duration-200",
+              isOpen ? "rotate-180" : ""
+            )}
+          />
+        </button>
+      </div>
+
+      {/* Single Dropdown Menu */}
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl border border-border bg-popover text-popover-foreground shadow-lg max-h-60 overflow-y-auto custom-scrollbar-x p-1 space-y-0.5">
+          {filteredTeachers.length === 0 ? (
+            <div className="py-5 px-3 text-center text-xs text-muted-foreground">
+              No matching faculty found.
+            </div>
+          ) : (
+            filteredTeachers.map((t) => {
+              const isSelected = t.id === selectedTeacherId
+              const isPaid = Boolean(t.payout && t.payout.status === "PAID")
+              return (
+                <div
+                  key={t.id}
+                  onClick={() => handleSelectOption(t)}
+                  className={cn(
+                    "px-3 py-2.5 rounded-lg text-xs cursor-pointer flex items-center justify-between gap-3 transition-colors",
+                    isSelected
+                      ? "bg-primary-light/60 text-primary font-semibold"
+                      : "hover:bg-muted/60 text-foreground"
+                  )}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold truncate flex items-center gap-2">
+                      <span>{t.name}</span>
+                      {isPaid && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Paid
+                        </span>
+                      )}
+                      {!isPaid && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                          Pending
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+                      {t.subjects || "Teacher"} · {t.batchesCount} {t.batchesCount === 1 ? "batch" : "batches"} · Base ₹{(t.salary || 0).toLocaleString("en-IN")}
+                    </div>
+                  </div>
+
+                  {isSelected && (
+                    <Check className="size-4 text-primary shrink-0" />
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function DisburseSalaryModal({
@@ -196,13 +364,13 @@ export function DisburseSalaryModal({
             Disburse salary
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            {monthName} {year}
+            {monthName}
           </DialogDescription>
         </DialogHeader>
 
         {/* Scrollable Body */}
         <div className="space-y-4 overflow-y-auto flex-1 pr-0.5">
-          {/* Faculty Selector with Search */}
+          {/* Faculty Selector with Type-and-Select Dropdown */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-xs font-semibold text-foreground flex items-center gap-1">
@@ -217,23 +385,10 @@ export function DisburseSalaryModal({
               )}
             </div>
 
-            <CustomSelect
-              value={selectedTeacherId}
-              onChange={handleTeacherSelect}
-              options={teachers.map((t) => {
-                const isPaid = Boolean(t.payout && t.payout.status === "PAID")
-                return {
-                  value: t.id,
-                  label: t.name,
-                  description: `${t.subjects || "Teacher"} · ${t.batchesCount} ${t.batchesCount === 1 ? "batch" : "batches"} · Base ₹${(t.salary || 0).toLocaleString("en-IN")}`,
-                  badge: isPaid ? "Paid" : "Pending",
-                }
-              })}
-              searchable={true}
-              searchPlaceholder="Search by name, subject, or batch..."
-              placeholder="Select a teacher..."
-              size="default"
-              className="w-full"
+            <TeacherTypeAndSelectDropdown
+              teachers={teachers}
+              selectedTeacherId={selectedTeacherId}
+              onSelect={handleTeacherSelect}
             />
           </div>
 
@@ -350,8 +505,16 @@ export function DisburseSalaryModal({
                 <Label className="text-xs">Payment Method</Label>
                 <CustomSelect
                   value={paymentMode}
-                  onChange={setPaymentMode}
+                  onChange={(val) => {
+                    setPaymentMode(val)
+                    if (val === "RAZORPAY") {
+                      const rzpRef = `pout_test_${Date.now().toString(36)}${Math.random().toString(36).substring(2, 6)}`
+                      setTransactionRef(rzpRef)
+                      if (!notes) setNotes("Disbursed via Razorpay Online Payouts (Test Mode)")
+                    }
+                  }}
                   options={[
+                    { value: "RAZORPAY", label: "Razorpay (Online Test Transfer)" },
                     { value: "NET_BANKING", label: "Bank Transfer (NEFT / IMPS)" },
                     { value: "UPI", label: "UPI Transfer" },
                     { value: "CHEQUE", label: "Bank Cheque" },
@@ -363,18 +526,27 @@ export function DisburseSalaryModal({
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs">
-                  {paymentMode === "CHEQUE"
-                    ? "Cheque Number"
-                    : paymentMode === "CASH"
-                    ? "Cash Voucher Ref"
-                    : "Bank UTR / Transaction Ref"}
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">
+                    {paymentMode === "RAZORPAY"
+                      ? "Razorpay Payout Reference"
+                      : paymentMode === "CHEQUE"
+                      ? "Cheque Number"
+                      : paymentMode === "CASH"
+                      ? "Cash Voucher Ref"
+                      : "Bank UTR / Transaction Ref"}
+                  </Label>
+                  {paymentMode === "RAZORPAY" && (
+                    <span className="text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded font-semibold border border-blue-200">
+                      Test Mode
+                    </span>
+                  )}
+                </div>
                 <Input
-                  placeholder={paymentMode === "CHEQUE" ? "e.g. 004928" : "e.g. UTR-20261002-8924"}
+                  placeholder={paymentMode === "RAZORPAY" ? "e.g. pout_test_987123" : paymentMode === "CHEQUE" ? "e.g. 004928" : "e.g. UTR-20261002-8924"}
                   value={transactionRef}
                   onChange={(e) => setTransactionRef(e.target.value)}
-                  className="h-8 text-xs bg-card border-border"
+                  className="h-8 text-xs bg-card border-border font-mono"
                 />
               </div>
             </div>

@@ -415,6 +415,7 @@ export async function getStudentPortalData() {
         },
         fees: {
           orderBy: { dueDate: "asc" },
+          include: { payments: { orderBy: { paidAt: "desc" } } },
         },
         attendance: {
           orderBy: { date: "desc" },
@@ -457,6 +458,7 @@ export async function getStudentPortalData() {
             },
             fees: {
               orderBy: { dueDate: "asc" },
+              include: { payments: { orderBy: { paidAt: "desc" } } },
             },
             attendance: {
               orderBy: { date: "desc" },

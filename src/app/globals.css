@@ -1,7 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -335,9 +333,46 @@ button[disabled],
   font-size: 0.75rem !important;
   transition: all 150ms ease-in-out !important;
 }
-
 .cl-userButtonPopoverActionButton:hover {
   background-color: var(--muted) !important;
+}
+
+/* Custom sleek horizontal scrollbar */
+.custom-scrollbar-x {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+  -webkit-overflow-scrolling: touch;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar {
+  height: 6px;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Print optimization: hide web modals, action buttons, and navigation chrome on browser print */
+@media print {
+  [data-radix-portal] button,
+  .no-print,
+  nav,
+  aside,
+  header {
+    display: none !important;
+  }
 }
 
 

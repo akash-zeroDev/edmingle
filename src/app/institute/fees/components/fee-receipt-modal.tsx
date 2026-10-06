@@ -18,6 +18,7 @@ import {
   Check,
   Receipt,
 } from "lucide-react"
+import { printOfficialFeeReceipt } from "@/lib/print-document"
 
 export interface ReceiptData {
   receiptNo: string
@@ -53,22 +54,45 @@ export function FeeReceiptModal({
 
   if (!receipt) return null
 
-  const formattedDate = receipt.paidAt
+  const formattedDateTime = receipt.paidAt
     ? new Date(receipt.paidAt).toLocaleDateString("en-IN", {
         day: "numeric",
         month: "short",
         year: "numeric",
+      }) +
+      ", " +
+      new Date(receipt.paidAt).toLocaleTimeString("en-IN", {
         hour: "2-digit",
         minute: "2-digit",
+        hour12: true,
       })
     : new Date().toLocaleDateString("en-IN", {
         day: "numeric",
         month: "short",
         year: "numeric",
+      }) +
+      ", " +
+      new Date().toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
       })
 
   const handlePrint = () => {
-    window.print()
+    printOfficialFeeReceipt({
+      receiptNo: receipt.receiptNo,
+      studentName: receipt.studentName,
+      batchName: receipt.batchName,
+      amount: receipt.amount,
+      paymentMode: receipt.paymentMode,
+      remainingBalance: receipt.remainingBalance,
+      paidAt: receipt.paidAt,
+      cashierName: receipt.cashierName,
+      instituteName: receipt.instituteName || instituteName,
+      parentPhone: receipt.parentPhone,
+      studentPhone: receipt.studentPhone,
+      transactionRef: (receipt as any).transactionRef || null,
+    })
   }
 
   const handleCopyWhatsApp = () => {
@@ -91,13 +115,18 @@ export function FeeReceiptModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl bg-card border border-border p-6 rounded-2xl shadow-xl flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="flex items-start justify-between pb-2 border-b border-border">
+        <div className="flex items-start justify-between pb-3 border-b border-border pr-8">
           <div className="space-y-1">
-            <div className="size-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center mb-1">
-              <Receipt className="size-5" />
+            <div className="flex items-center gap-2 mb-1">
+              <div className="size-9 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center">
+                <Receipt className="size-4.5" />
+              </div>
+              <span className="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                PAID
+              </span>
             </div>
             <DialogTitle className="text-lg font-bold text-foreground">
-              Payment receipt
+              Tuition Fee Receipt
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               Receipt #{receipt.receiptNo}
@@ -105,7 +134,7 @@ export function FeeReceiptModal({
           </div>
 
           {/* Format Toggle */}
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">
+          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg mr-2">
             <button
               type="button"
               onClick={() => setPrintFormat("A4")}
@@ -187,9 +216,9 @@ export function FeeReceiptModal({
                   </div>
                   <div>
                     <span className="text-[10px] text-muted-foreground uppercase font-medium">
-                      Transaction Date
+                      Payment Date & Time
                     </span>
-                    <div className="font-medium text-foreground">{formattedDate}</div>
+                    <div className="font-medium text-foreground">{formattedDateTime}</div>
                   </div>
                 </div>
 
@@ -251,8 +280,8 @@ export function FeeReceiptModal({
                     <span className="font-semibold text-primary">{receipt.paymentMode}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Date:</span>
-                    <span className="text-foreground">{formattedDate}</span>
+                    <span className="text-muted-foreground">Date & Time:</span>
+                    <span className="text-foreground">{formattedDateTime}</span>
                   </div>
                 </div>
 
